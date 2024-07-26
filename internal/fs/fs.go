@@ -47,6 +47,7 @@ import (
 	"github.com/jacobsa/timeutil"
 )
 
+// adding a test comment
 type ServerConfig struct {
 	// A clock used for cache expiration. It is *not* used for inode times, for
 	// which we use the wall clock.
