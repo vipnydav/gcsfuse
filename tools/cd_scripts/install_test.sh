@@ -81,7 +81,7 @@ installed_version=$(echo $(sed -n 1p version.txt) | cut -d' ' -f3)
 if grep -q $installed_version details.txt; then
     echo "GCSFuse latest version installed correctly." &>> ~/logs.txt
 else
-    echo "Failure detected in latest gcsfuse version installation." &>> ~/logs.txt
+    echo "Failure detected in latest gcsfuse version installation - $installed_version " &>> ~/logs.txt
 fi
 
 
