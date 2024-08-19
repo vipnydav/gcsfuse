@@ -115,7 +115,7 @@ fi
 gcsfuse --version |& tee version.txt
 installed_version=$(echo $(sed -n 1p version.txt) | cut -d' ' -f3)
 if grep -q $installed_version details.txt; then
-    echo "GCSFuse successfully upgraded to latest version $installed_version." &>> ~/logs.txt
+    echo "GCSFuse successfully upgraded to latest version." &>> ~/logs.txt
 else
     echo "Failure detected in upgrading to latest gcsfuse version." &>> ~/logs.txt
 fi
