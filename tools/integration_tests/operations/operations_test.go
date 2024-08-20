@@ -1,4 +1,4 @@
-// Copyright 2024 Google Inc. All Rights Reserved.
+// Copyright 2024 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
-	"github.com/googlecloudplatform/gcsfuse/v2/internal/config"
 	"github.com/googlecloudplatform/gcsfuse/v2/tools/integration_tests/util/client"
 	"github.com/googlecloudplatform/gcsfuse/v2/tools/integration_tests/util/creds_tests"
 	"github.com/googlecloudplatform/gcsfuse/v2/tools/integration_tests/util/mounting/dynamic_mounting"
@@ -48,8 +47,6 @@ const DestCopyDirectoryNotExist = "notExist"
 const NumberOfObjectsInSrcCopyDirectory = 2
 const NumberOfObjectsInNonEmptyDestCopyDirectory = 2
 const DestEmptyCopyDirectory = "destEmptyCopyDirectory"
-const PrefixFileInSrcCopyFile = "fileInSrcCopyDir"
-const FileInSrcCopyFile = "fileInSrcCopyDir1"
 const EmptySrcDirectoryCopyTest = "emptySrcDirectoryCopyTest"
 const NumberOfObjectsInEmptyDestCopyDirectory = 1
 const NumberOfObjectsInBucketDirectoryListTest = 1
@@ -91,60 +88,44 @@ const FileInDirThreeInCreateThreeLevelDirTest = "fileInDirThreeInCreateThreeLeve
 const ContentInFileInDirThreeInCreateThreeLevelDirTest = "Hello world!!"
 const Content = "line 1\nline 2\n"
 const onlyDirMounted = "OnlyDirMountOperations"
+const storageClientTimeout = time.Minute * 50
 
 func createMountConfigsAndEquivalentFlags() (flags [][]string) {
 	cacheDirPath := path.Join(os.Getenv("HOME"), "operations-cache-dir")
 
 	// Set up config file with create-empty-file: true.
-	mountConfig1 := config.MountConfig{
-		WriteConfig: config.WriteConfig{
-			CreateEmptyFile: true,
-		},
-		LogConfig: config.LogConfig{
-			Severity:        config.TRACE,
-			LogRotateConfig: config.DefaultLogRotateConfig(),
+	mountConfig1 := map[string]interface{}{
+		"write": map[string]interface{}{
+			"create-empty-file": true,
 		},
 	}
+
 	filePath1 := setup.YAMLConfigFile(mountConfig1, "config1.yaml")
 	flags = append(flags, []string{"--config-file=" + filePath1})
 
 	// Set up config file for file cache.
-	mountConfig2 := config.MountConfig{
-		FileCacheConfig: config.FileCacheConfig{
+	mountConfig2 := map[string]interface{}{
+		"file-cache": map[string]interface{}{
 			// Keeping the size as low because the operations are performed on small
 			// files
-			MaxSizeMB: 2,
+			"max-size-mb": 2,
 		},
-		CacheDir: cacheDirPath,
-		LogConfig: config.LogConfig{
-			Severity:        config.TRACE,
-			LogRotateConfig: config.DefaultLogRotateConfig(),
-		},
+		"cache-dir": cacheDirPath,
 	}
 	filePath2 := setup.YAMLConfigFile(mountConfig2, "config2.yaml")
 	flags = append(flags, []string{"--config-file=" + filePath2})
 
-	mountConfig3 := config.MountConfig{
-		// Run with metadata caches disabled.
-		MetadataCacheConfig: config.MetadataCacheConfig{
-			TtlInSeconds: 0,
-		},
-		LogConfig: config.LogConfig{
-			Severity:        config.TRACE,
-			LogRotateConfig: config.DefaultLogRotateConfig(),
+	mountConfig3 := map[string]interface{}{
+		"metadata-cache": map[string]interface{}{
+			"ttl-secs": 0,
 		},
 	}
 	filePath3 := setup.YAMLConfigFile(mountConfig3, "config3.yaml")
 	flags = append(flags, []string{"--config-file=" + filePath3})
 
-	mountConfig4 := config.MountConfig{
-		// Run with metadata caches disabled.
-		FileSystemConfig: config.FileSystemConfig{
-			KernelListCacheTtlSeconds: -1,
-		},
-		LogConfig: config.LogConfig{
-			Severity:        config.TRACE,
-			LogRotateConfig: config.DefaultLogRotateConfig(),
+	mountConfig4 := map[string]interface{}{
+		"file-system": map[string]interface{}{
+			"kernel-list-cache-ttl-secs": -1,
 		},
 	}
 	filePath4 := setup.YAMLConfigFile(mountConfig4, "config4.yaml")
@@ -160,7 +141,7 @@ func TestMain(m *testing.M) {
 	// Create storage client before running tests.
 	ctx := context.Background()
 	var storageClient *storage.Client
-	closeStorageClient := client.CreateStorageClientWithTimeOut(&ctx, &storageClient, time.Minute*40)
+	closeStorageClient := client.CreateStorageClientWithTimeOut(&ctx, &storageClient, storageClientTimeout)
 	defer func() {
 		err := closeStorageClient()
 		if err != nil {

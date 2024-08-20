@@ -1,4 +1,4 @@
-// Copyright 2024 Google Inc. All Rights Reserved.
+// Copyright 2024 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,7 +44,10 @@ func (m *TestifyMockBucket) NewReader(ctx context.Context, req *gcs.ReadObjectRe
 
 func (m *TestifyMockBucket) CreateObject(ctx context.Context, req *gcs.CreateObjectRequest) (*gcs.Object, error) {
 	args := m.Called(ctx, req)
-	return args.Get(0).(*gcs.Object), args.Error(1)
+	if args.Get(1) != nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*gcs.Object), nil
 }
 
 func (m *TestifyMockBucket) CopyObject(ctx context.Context, req *gcs.CopyObjectRequest) (*gcs.Object, error) {
@@ -59,7 +62,10 @@ func (m *TestifyMockBucket) ComposeObjects(ctx context.Context, req *gcs.Compose
 
 func (m *TestifyMockBucket) StatObject(ctx context.Context, req *gcs.StatObjectRequest) (*gcs.MinObject, *gcs.ExtendedObjectAttributes, error) {
 	args := m.Called(ctx, req)
-	return args.Get(0).(*gcs.MinObject), args.Get(1).(*gcs.ExtendedObjectAttributes), args.Error(2)
+	if args.Get(2) != nil {
+		return nil, nil, args.Error(2)
+	}
+	return args.Get(0).(*gcs.MinObject), args.Get(1).(*gcs.ExtendedObjectAttributes), nil
 }
 
 func (m *TestifyMockBucket) ListObjects(ctx context.Context, req *gcs.ListObjectsRequest) (*gcs.Listing, error) {
@@ -92,10 +98,16 @@ func (m *TestifyMockBucket) GetFolder(ctx context.Context, folderName string) (*
 
 func (m *TestifyMockBucket) RenameFolder(ctx context.Context, folderName string, destinationFolderId string) (*gcs.Folder, error) {
 	args := m.Called(ctx, folderName, destinationFolderId)
-	return args.Get(0).(*gcs.Folder), args.Error(1)
+	if args.Get(0) != nil {
+		return args.Get(0).(*gcs.Folder), nil
+	}
+	return nil, args.Error(1)
 }
 
 func (m *TestifyMockBucket) CreateFolder(ctx context.Context, folderName string) (*gcs.Folder, error) {
 	args := m.Called(ctx, folderName)
-	return args.Get(0).(*gcs.Folder), args.Error(1)
+	if args.Get(0) != nil {
+		return args.Get(0).(*gcs.Folder), nil
+	}
+	return nil, args.Error(1)
 }

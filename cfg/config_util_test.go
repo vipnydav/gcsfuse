@@ -1,4 +1,4 @@
-// Copyright 2024 Google Inc. All Rights Reserved.
+// Copyright 2024 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,56 +16,92 @@ package cfg
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func TestOverrideWithLoggingFlags(t *testing.T) {
+func Test_DefaultMaxParallelDownloads(t *testing.T) {
+	assert.GreaterOrEqual(t, DefaultMaxParallelDownloads(), 16)
+}
+
+func TestIsFileCacheEnabled(t *testing.T) {
 	testCases := []struct {
-		name        string
-		mountConfig *Config
-		debugFuse   bool
-		debugGCS    bool
-		debugMutex  bool
-		expected    LogSeverity
+		name                       string
+		config                     *Config
+		expectedIsFileCacheEnabled bool
 	}{
 		{
-			name:        "No debug flags",
-			mountConfig: &Config{Logging: LoggingConfig{Severity: "DEBUG"}}, // Initial severity
-			expected:    "DEBUG",                                            // Should remain unchanged
+			name: "Config with CacheDir set and cache size non zero.",
+			config: &Config{
+				CacheDir: "/tmp/folder/",
+				FileCache: FileCacheConfig{
+					MaxSizeMb: -1,
+				},
+			},
+			expectedIsFileCacheEnabled: true,
 		},
 		{
-			name:        "debugFuse true",
-			mountConfig: &Config{Logging: LoggingConfig{Severity: "INFO"}},
-			debugFuse:   true,
-			expected:    "TRACE",
+			name:                       "Empty Config.",
+			config:                     &Config{},
+			expectedIsFileCacheEnabled: false,
 		},
 		{
-			name:        "debugGCS true",
-			mountConfig: &Config{Logging: LoggingConfig{Severity: "WARNING"}},
-			debugGCS:    true,
-			expected:    "TRACE",
+			name: "Config with CacheDir unset",
+			config: &Config{
+				CacheDir: "",
+				FileCache: FileCacheConfig{
+					MaxSizeMb: -1,
+				},
+			},
+			expectedIsFileCacheEnabled: false,
 		},
 		{
-			name:        "debugMutex true",
-			mountConfig: &Config{Logging: LoggingConfig{Severity: "OFF"}},
-			debugMutex:  true,
-			expected:    "TRACE",
-		},
-		{
-			name:        "Multiple debug flags true",
-			mountConfig: &Config{Logging: LoggingConfig{Severity: "INFO"}},
-			debugFuse:   true,
-			debugGCS:    true,
-			expected:    "TRACE",
+			name: "Config with CacheDir set and cache size zero.",
+			config: &Config{
+				CacheDir: "//tmp//folder//",
+				FileCache: FileCacheConfig{
+					MaxSizeMb: 0,
+				},
+			},
+			expectedIsFileCacheEnabled: false,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			OverrideWithLoggingFlags(tc.mountConfig, tc.debugFuse, tc.debugGCS, tc.debugMutex)
-
-			assert.Equal(t, tc.expected, tc.mountConfig.Logging.Severity)
+			assert.Equal(t, tc.expectedIsFileCacheEnabled, IsFileCacheEnabled(tc.config))
 		})
 	}
+
+}
+
+func Test_ListCacheTtlSecsToDuration(t *testing.T) {
+	var testCases = []struct {
+		testName         string
+		ttlInSecs        int64
+		expectedDuration time.Duration
+	}{
+		{"-1", -1, maxSupportedTTL},
+		{"0", 0, time.Duration(0)},
+		{"max_supported_positive", 9223372036, maxSupportedTTL},
+		{"positive", 1, time.Second},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.testName, func(t *testing.T) {
+			assert.Equal(t, tt.expectedDuration, ListCacheTTLSecsToDuration(tt.ttlInSecs))
+		})
+	}
+}
+
+func Test_ListCacheTtlSecsToDuration_InvalidCall(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("The code did not panic")
+		}
+	}()
+
+	// Calling with invalid argument to trigger panic.
+	ListCacheTTLSecsToDuration(-3)
 }

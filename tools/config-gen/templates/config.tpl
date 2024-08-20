@@ -1,4 +1,4 @@
-// Copyright 2024 Google Inc. All Rights Reserved.
+// Copyright 2024 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,9 +18,7 @@ package cfg
 
 import (
 	"time"
-	"net/url"
 
-	"github.com/googlecloudplatform/gcsfuse/v2/internal/config"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
@@ -29,31 +27,27 @@ import (
 {{range .TypeTemplateData}}
 type {{ .TypeName}} struct {
   {{- range $idx, $fld := .Fields}}
-  {{ $fld.FieldName}} {{ $fld.DataType}} {{$bt}}yaml:"{{$fld.ConfigPath}}"{{$bt}}
+  {{ $fld.FieldName}} {{ $fld.DataType}} {{$bt}}yaml:"{{$fld.ConfigPath}},omitempty" json:"{{$fld.ConfigPath}},omitempty"{{$bt}}
 {{end}}
 }
 {{end}}
 
 func BindFlags(v *viper.Viper, flagSet *pflag.FlagSet) error {
-  var err error
   {{range .FlagTemplateData}}
   flagSet.{{ .Fn}}("{{ .FlagName}}", "{{ .Shorthand}}", {{ .DefaultValue}}, {{ .Usage}})
   {{if .IsDeprecated}}
-  err = flagSet.MarkDeprecated("{{ .FlagName}}", "{{ .DeprecationWarning}}")
-  if err != nil {
+  if err := flagSet.MarkDeprecated("{{ .FlagName}}", "{{ .DeprecationWarning}}"); err != nil {
     return err
   }
   {{end}}
   {{if .HideFlag}}
-  err = flagSet.MarkHidden("{{ .FlagName}}")
-  if err != nil {
+  if err := flagSet.MarkHidden("{{ .FlagName}}"); err != nil {
     return err
   }
   {{end}}
   {{if .HideShorthand}}flagSet.ShorthandLookup("{{ .Shorthand}}").Hidden = true{{end}}
   {{if ne .ConfigPath ""}}
-  err = v.BindPFlag("{{ .ConfigPath}}", flagSet.Lookup("{{ .FlagName}}"))
-  if err != nil {
+  if err := v.BindPFlag("{{ .ConfigPath}}", flagSet.Lookup("{{ .FlagName}}")); err != nil {
     return err
   }
   {{end}}

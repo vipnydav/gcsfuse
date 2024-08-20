@@ -1,4 +1,4 @@
-// Copyright 2023 Google Inc. All Rights Reserved.
+// Copyright 2023 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -41,7 +41,6 @@ const (
 	GCSFileContent     = "GCSteststring"
 	GCSFileSize        = 13
 	FilePerms          = 0644
-	ReadSize           = 1024
 	SizeTruncate       = 5
 	NewFileName        = "newName"
 	NewDirName         = "newDirName"

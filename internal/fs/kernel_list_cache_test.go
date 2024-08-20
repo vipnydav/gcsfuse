@@ -1,4 +1,4 @@
-// Copyright 2024 Google Inc. All Rights Reserved.
+// Copyright 2024 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,11 +26,11 @@ package fs_test
 import (
 	"os"
 	"path"
-	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/googlecloudplatform/gcsfuse/v2/cfg"
 	"github.com/googlecloudplatform/gcsfuse/v2/internal/config"
 	"github.com/googlecloudplatform/gcsfuse/v2/internal/util"
 	"github.com/stretchr/testify/assert"
@@ -106,10 +106,12 @@ type KernelListCacheTestWithPositiveTtl struct {
 
 func (t *KernelListCacheTestWithPositiveTtl) SetupSuite() {
 	t.serverCfg.ImplicitDirectories = true
-	t.serverCfg.MountConfig = &config.MountConfig{
-		FileSystemConfig: config.FileSystemConfig{
-			KernelListCacheTtlSeconds: kernelListCacheTtlSeconds,
+	t.serverCfg.NewConfig = &cfg.Config{
+		FileSystem: cfg.FileSystemConfig{
+			KernelListCacheTtlSecs: kernelListCacheTtlSeconds,
 		},
+	}
+	t.serverCfg.MountConfig = &config.MountConfig{
 		MetadataCacheConfig: config.MetadataCacheConfig{
 			TtlInSeconds: 0,
 		},
@@ -225,10 +227,7 @@ func (t *KernelListCacheTestWithPositiveTtl) Test_Parallel_ReadDirAndFileOperati
 			assert.Nil(t.T(), err)
 
 			_, err = f.Readdirnames(-1)
-			if err != nil {
-				// This is expected, see the documentation for fixConflictingNames() call in dir_handle.go.
-				assert.True(t.T(), strings.Contains(err.Error(), "input/output error"))
-			}
+			assert.Nil(t.T(), err)
 
 			err = f.Close()
 			assert.Nil(t.T(), err)

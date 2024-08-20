@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All Rights Reserved.
+// Copyright 2015 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -219,12 +219,27 @@ func (b *prefixBucket) DeleteFolder(ctx context.Context, folderName string) (err
 
 func (b *prefixBucket) GetFolder(ctx context.Context, folderName string) (folder *gcs.Folder, err error) {
 	mFolderName := b.wrappedName(folderName)
-	return b.wrapped.GetFolder(ctx, mFolderName)
+
+	f, err := b.wrapped.GetFolder(ctx, mFolderName)
+
+	// Modify the returned folder.
+	if f != nil {
+		f.Name = b.localName(f.Name)
+	}
+
+	return f, err
 }
 
-func (b *prefixBucket) CreateFolder(ctx context.Context, folderName string) (folder *gcs.Folder, err error) {
+func (b *prefixBucket) CreateFolder(ctx context.Context, folderName string) (*gcs.Folder, error) {
 	mFolderName := b.wrappedName(folderName)
-	return b.wrapped.CreateFolder(ctx, mFolderName)
+	f, err := b.wrapped.CreateFolder(ctx, mFolderName)
+
+	// Modify the returned folder.
+	if f != nil {
+		f.Name = b.localName(mFolderName)
+	}
+
+	return f, err
 }
 
 func (b *prefixBucket) RenameFolder(ctx context.Context, folderName string, destinationFolderId string) (*gcs.Folder, error) {

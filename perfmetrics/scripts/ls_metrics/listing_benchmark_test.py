@@ -1,4 +1,4 @@
-# Copyright 2023 Google Inc. All Rights Reserved.
+# Copyright 2023 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -572,45 +572,6 @@ class ListingBenchmarkTest(unittest.TestCase):
     result = listing_benchmark._compare_directory_structure(
         'fake_bucket/', DIRECTORY_STRUCTURE3)
     self.assertFalse(result)
-
-  @patch('listing_benchmark.subprocess.call', return_value=0)
-  def test_unmount_gcs_bucket(self, mock_subprocess_call):
-    listing_benchmark._unmount_gcs_bucket('fake_bucket')
-    self.assertEqual(mock_subprocess_call.call_count, 2)
-    self.assertEqual(mock_subprocess_call.call_args_list[0], call(
-        'umount -l fake_bucket', shell=True))
-    self.assertEqual(mock_subprocess_call.call_args_list[1], call(
-        'rm -rf fake_bucket', shell=True))
-
-  @patch('listing_benchmark.subprocess.call', return_value=1)
-  def test_unmount_gcs_bucket_error(self, mock_subprocess_call):
-    listing_benchmark._unmount_gcs_bucket('fake_bucket')
-    self.assertEqual(mock_subprocess_call.call_count, 2)
-    self.assertEqual(mock_subprocess_call.call_args_list[0], call(
-        'umount -l fake_bucket', shell=True))
-    self.assertEqual(
-        mock_subprocess_call.call_args_list[1], call('bash', shell=True))
-
-  @patch('listing_benchmark.subprocess.call', return_value=0)
-  def test_mount_gcs_bucket(self, mock_subprocess_call):
-    directory_name = listing_benchmark._mount_gcs_bucket('fake_bucket',
-                                                         '--implicit-dirs')
-    self.assertEqual(directory_name, 'fake_bucket')
-    self.assertEqual(mock_subprocess_call.call_count, 2)
-    self.assertEqual(mock_subprocess_call.call_args_list, [
-        call('mkdir fake_bucket', shell=True),
-        call('gcsfuse --implicit-dirs fake_bucket fake_bucket', shell=True)
-    ])
-
-  @patch('listing_benchmark.subprocess.call', return_value=1)
-  def test_mount_gcs_bucket_error(self, mock_subprocess_call):
-    listing_benchmark._mount_gcs_bucket('fake_bucket', '--implicit-dirs')
-    self.assertEqual(mock_subprocess_call.call_count, 3)
-    self.assertEqual(mock_subprocess_call.call_args_list, [
-        call('mkdir fake_bucket', shell=True),
-        call('gcsfuse --implicit-dirs fake_bucket fake_bucket', shell=True),
-        call('bash', shell=True)
-    ])
 
 
 if __name__ == '__main__':

@@ -1,4 +1,4 @@
-// Copyright 2020 Google Inc. All Rights Reserved.
+// Copyright 2020 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -232,7 +232,7 @@ func (d *baseDirInode) DeleteChildDir(
 	return
 }
 
-func (d *baseDirInode) LocalFileEntries(localFileInodes map[Name]Inode) (localEntries []fuseutil.Dirent) {
+func (d *baseDirInode) LocalFileEntries(localFileInodes map[Name]Inode) (localEntries map[string]fuseutil.Dirent) {
 	// Base directory can not contain local files.
 	return nil
 }
@@ -242,6 +242,9 @@ func (d *baseDirInode) ShouldInvalidateKernelListCache(ttl time.Duration) bool {
 	// for baseDirInode.
 	return true
 }
+
+// List operation is not supported for baseDirInode.
+func (d *baseDirInode) InvalidateKernelListCache() {}
 
 func (d *baseDirInode) RenameFolder(ctx context.Context, folderName string, destinationFolderId string) (op *gcs.Folder, err error) {
 	err = fuse.ENOSYS

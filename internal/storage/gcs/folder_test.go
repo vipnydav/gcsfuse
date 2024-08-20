@@ -1,4 +1,4 @@
-// Copyright 2024 Google Inc. All Rights Reserved.
+// Copyright 2024 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -48,6 +48,5 @@ func TestGCSFolder(t *testing.T) {
 	gcsFolder := GCSFolder(TestBucketName, &attrs)
 
 	assert.Equal(t, attrs.Name, gcsFolder.Name)
-	assert.Equal(t, attrs.Metageneration, gcsFolder.MetaGeneration)
 	assert.Equal(t, attrs.UpdateTime.AsTime(), gcsFolder.UpdateTime)
 }

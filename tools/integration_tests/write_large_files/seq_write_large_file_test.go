@@ -1,4 +1,4 @@
-// Copyright 2023 Google Inc. All Rights Reserved.
+// Copyright 2023 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
 package write_large_files
 
 import (
-	"os"
 	"path"
 	"testing"
 
@@ -33,17 +32,14 @@ const (
 
 func TestWriteLargeFileSequentially(t *testing.T) {
 	seqWriteDir := path.Join(setup.MntDir(), DirForSeqWrite)
-	err := os.Mkdir(seqWriteDir, setup.FilePermission_0600)
-	if err != nil {
-		t.Fatalf("Error in creating directory:%v", err)
-	}
+	setup.SetupTestDirectory(DirForSeqWrite)
 	filePath := path.Join(seqWriteDir, FiveHundredMBFile)
 
 	// Clean up.
 	defer operations.RemoveDir(seqWriteDir)
 
 	// Sequentially write the data in file.
-	err = operations.WriteFileSequentially(filePath, FiveHundredMB, ChunkSize)
+	err := operations.WriteFileSequentially(filePath, FiveHundredMB, ChunkSize)
 	if err != nil {
 		t.Fatalf("Error in writing file: %v", err)
 	}

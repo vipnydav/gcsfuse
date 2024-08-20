@@ -1,4 +1,4 @@
-//Copyright 2023 Google Inc. All Rights Reserved.
+//Copyright 2023 Google LLC
 //
 //Licensed under the Apache License, Version 2.0 (the "License");
 //you may not use this file except in compliance with the License.
@@ -55,6 +55,9 @@ func executeTestsForStaticMounting(flagsSet [][]string, m *testing.M) (successCo
 		}
 		log.Printf("Running static mounting tests with flags: %s", flagsSet[i])
 		successCode = setup.ExecuteTestForFlagsSet(flagsSet[i], m)
+		if successCode != 0 {
+			return
+		}
 	}
 	return
 }

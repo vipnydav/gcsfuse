@@ -1,4 +1,4 @@
-// Copyright 2023 Google Inc. All Rights Reserved.
+// Copyright 2023 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -29,6 +28,8 @@ import (
 	. "github.com/googlecloudplatform/gcsfuse/v2/tools/integration_tests/util/client"
 	"github.com/googlecloudplatform/gcsfuse/v2/tools/integration_tests/util/operations"
 	"github.com/googlecloudplatform/gcsfuse/v2/tools/integration_tests/util/setup"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // //////////////////////////////////////////////////////////////////////
@@ -168,8 +169,8 @@ func TestReadDirWithSameNameLocalAndGCSFile(t *testing.T) {
 
 	// Attempt to list testDir.
 	_, err := os.ReadDir(testDirPath)
-	if err == nil || !strings.Contains(err.Error(), "input/output error") {
-		t.Fatalf("Expected error: %s, Got error: %v", "input/output error", err)
+	if err != nil {
+		t.Fatalf("ReadDir err: %v", err)
 	}
 
 	// Close the local file.
@@ -186,4 +187,21 @@ func TestConcurrentReadDirAndCreationOfLocalFiles_DoesNotThrowError(t *testing.T
 	go readingDirNTimesShouldNotThrowError(200, &wg, t)
 
 	wg.Wait()
+}
+
+func TestStatLocalFileAfterRecreatingItWithSameName(t *testing.T) {
+	testDirPath = setup.SetupTestDirectory(testDirName)
+	filePath := path.Join(testDirPath, FileName1)
+	operations.CreateFile(filePath, FilePerms, t)
+	_, err := os.Stat(filePath)
+	require.NoError(t, err)
+	err = os.Remove(filePath)
+	require.NoError(t, err)
+	operations.CreateFile(filePath, FilePerms, t)
+
+	f, err := os.Stat(filePath)
+
+	assert.NoError(t, err)
+	assert.Equal(t, FileName1, f.Name())
+	assert.False(t, f.IsDir())
 }

@@ -1,4 +1,4 @@
-//Copyright 2023 Google Inc. All Rights Reserved.
+//Copyright 2023 Google LLC
 //
 //Licensed under the Apache License, Version 2.0 (the "License");
 //you may not use this file except in compliance with the License.
@@ -76,6 +76,9 @@ func executeTestsForPersistentMounting(flagsSet [][]string, m *testing.M) (succe
 		}
 		log.Printf("Running persistent mounting tests with flags: %s", flagsSet[i])
 		successCode = setup.ExecuteTestForFlagsSet(flagsSet[i], m)
+		if successCode != 0 {
+			return
+		}
 	}
 	return
 }

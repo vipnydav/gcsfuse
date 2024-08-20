@@ -1,4 +1,4 @@
-// Copyright 2024 Google Inc. All Rights Reserved.
+// Copyright 2024 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/googlecloudplatform/gcsfuse/v2/cfg"
 	"github.com/googlecloudplatform/gcsfuse/v2/internal/config"
 	"github.com/googlecloudplatform/gcsfuse/v2/internal/logger"
 	"github.com/googlecloudplatform/gcsfuse/v2/internal/mount"
@@ -30,11 +31,7 @@ import (
 	"github.com/urfave/cli"
 )
 
-// Defines the max value supported by sequential-read-size-mb flag.
 const (
-	// maxSequentialReadSizeMb is the max value supported by sequential-read-size-mb flag.
-	maxSequentialReadSizeMb = 1024
-
 	// ExperimentalMetadataPrefetchOnMountFlag is the name of the commandline flag for enabling
 	// metadata-prefetch mode aka 'ls -R' during mount.
 	ExperimentalMetadataPrefetchOnMountFlag = "experimental-metadata-prefetch-on-mount"
@@ -145,7 +142,7 @@ func newApp() (app *cli.App) {
 			},
 
 			cli.BoolTFlag{
-				Name: config.IgnoreInterruptsFlagName,
+				Name: "ignore-interrupts",
 				Usage: "Instructs gcsfuse to ignore system interrupt signals (like SIGINT, triggered by Ctrl+C). " +
 					"This prevents those signals from immediately terminating gcsfuse inflight operations. (default: true)",
 			},
@@ -163,7 +160,7 @@ func newApp() (app *cli.App) {
 			},
 
 			cli.BoolFlag{
-				Name:  config.AnonymousAccess,
+				Name:  "anonymous-access",
 				Usage: "Authentication is enabled by default. This flag will disable authentication",
 			},
 
@@ -244,7 +241,7 @@ func newApp() (app *cli.App) {
 			},
 
 			cli.Int64Flag{
-				Name:  config.KernelListCacheTtlFlagName,
+				Name:  "kernel-list-cache-ttl-secs",
 				Value: config.DefaultKernelListCacheTtlSeconds,
 				Usage: "How long the directory listing (output of ls <dir>) should be cached in the kernel page cache." +
 					"If a particular directory cache entry is kept by kernel for longer than TTL, then it will be sent for invalidation " +
@@ -322,7 +319,7 @@ func newApp() (app *cli.App) {
 			},
 
 			cli.IntFlag{
-				Name:  config.PrometheusPortFlagName,
+				Name:  "prometheus-port",
 				Value: 0,
 				Usage: "Expose Prometheus metrics endpoint on this port and a path of /metrics.",
 			},
@@ -392,7 +389,7 @@ func newApp() (app *cli.App) {
 
 			cli.StringFlag{
 				Name:  ExperimentalMetadataPrefetchOnMountFlag,
-				Value: config.DefaultExperimentalMetadataPrefetchOnMount,
+				Value: cfg.ExperimentalMetadataPrefetchOnMountDisabled,
 				Usage: "Experimental: This indicates whether or not to prefetch the metadata (prefilling of metadata caches and creation of inodes) of the mounted bucket at the time of mounting the bucket. Supported values: \"disabled\", \"sync\" and \"async\". Any other values will return error on mounting. This is applicable only to static mounting, and not to dynamic mounting.",
 			},
 		},
@@ -410,7 +407,8 @@ type flagStorage struct {
 	ConfigFile string
 
 	// File system
-	MountOptions map[string]string
+	// Deprecated: Use the param from cfg/config.go
+	MountOptions []string
 
 	// Deprecated: Use the param from cfg/config.go
 	DirMode os.FileMode
@@ -431,7 +429,8 @@ type flagStorage struct {
 	OnlyDir string
 
 	// Deprecated: Use the param from cfg/config.go
-	RenameDirLimit   int64
+	RenameDirLimit int64
+	// Deprecated: Use the param from cfg/config.go
 	IgnoreInterrupts bool
 
 	// GCS
@@ -454,9 +453,11 @@ type flagStorage struct {
 	EgressBandwidthLimitBytesPerSecond float64
 
 	// Deprecated: Use the param from cfg/config.go
-	OpRateLimitHz        float64
+	OpRateLimitHz float64
+	// Deprecated: Use the param from cfg/config.go
 	SequentialReadSizeMb int32
-	AnonymousAccess      bool
+	// Deprecated: Use the param from cfg/config.go
+	AnonymousAccess bool
 
 	// Tuning
 	// Deprecated: Use the param from cfg/config.go
@@ -529,7 +530,7 @@ type flagStorage struct {
 
 	// Post-mount actions
 
-	// ExperimentalMetadataPrefetchOnMount indicates whether or not to prefetch the metadata of the mounted bucket at the time of mounting the bucket.
+	// Deprecated: ExperimentalMetadataPrefetchOnMount indicates whether or not to prefetch the metadata of the mounted bucket at the time of mounting the bucket.
 	// Supported values: ExperimentalMetadataPrefetchOnMountDisabled, ExperimentalMetadataPrefetchOnMountSynchronous, and ExperimentalMetadataPrefetchOnMountAsynchronous.
 	// Any other values will return error on mounting.
 	// This is applicable only to single-bucket mount-points, and not to dynamic-mount points. This is because dynamic-mounts don't mount the bucket(s) at the time of
@@ -608,7 +609,7 @@ func populateFlags(c *cli.Context) (flags *flagStorage, err error) {
 		ConfigFile: c.String("config-file"),
 
 		// File system
-		MountOptions:     make(map[string]string),
+		MountOptions:     c.StringSlice("o"),
 		DirMode:          os.FileMode(*c.Generic("dir-mode").(*OctalInt)),
 		FileMode:         os.FileMode(*c.Generic("file-mode").(*OctalInt)),
 		Uid:              int64(c.Int("uid")),
@@ -616,7 +617,7 @@ func populateFlags(c *cli.Context) (flags *flagStorage, err error) {
 		ImplicitDirs:     c.Bool("implicit-dirs"),
 		OnlyDir:          c.String("only-dir"),
 		RenameDirLimit:   int64(c.Int("rename-dir-limit")),
-		IgnoreInterrupts: c.Bool(config.IgnoreInterruptsFlagName),
+		IgnoreInterrupts: c.Bool("ignore-interrupts"),
 
 		// GCS,
 		CustomEndpoint:                     customEndpoint,
@@ -635,7 +636,7 @@ func populateFlags(c *cli.Context) (flags *flagStorage, err error) {
 		StatCacheCapacity:          c.Int("stat-cache-capacity"),
 		StatCacheTTL:               c.Duration("stat-cache-ttl"),
 		TypeCacheTTL:               c.Duration("type-cache-ttl"),
-		KernelListCacheTtlSeconds:  c.Int64(config.KernelListCacheTtlFlagName),
+		KernelListCacheTtlSeconds:  c.Int64("kernel-list-cache-ttl-secs"),
 		HttpClientTimeout:          c.Duration("http-client-timeout"),
 		RetryMultiplier:            c.Float64("retry-multiplier"),
 		TempDir:                    c.String("temp-dir"),
@@ -660,42 +661,6 @@ func populateFlags(c *cli.Context) (flags *flagStorage, err error) {
 
 		// Post-mount actions
 		ExperimentalMetadataPrefetchOnMount: c.String(ExperimentalMetadataPrefetchOnMountFlag),
-	}
-
-	// Handle the repeated "-o" flag.
-	for _, o := range c.StringSlice("o") {
-		mountpkg.ParseOptions(flags.MountOptions, o)
-	}
-
-	err = validateFlags(flags)
-
-	return
-}
-
-func validateExperimentalMetadataPrefetchOnMount(mode string) error {
-	switch mode {
-	case config.ExperimentalMetadataPrefetchOnMountDisabled:
-		fallthrough
-	case config.ExperimentalMetadataPrefetchOnMountSynchronous:
-		fallthrough
-	case config.ExperimentalMetadataPrefetchOnMountAsynchronous:
-		return nil
-	default:
-		return fmt.Errorf(config.UnsupportedMetadataPrefixModeError, mode)
-	}
-}
-
-func validateFlags(flags *flagStorage) (err error) {
-	if flags.SequentialReadSizeMb < 1 || flags.SequentialReadSizeMb > maxSequentialReadSizeMb {
-		return fmt.Errorf("SequentialReadSizeMb should be less than %d", maxSequentialReadSizeMb)
-	}
-
-	if err = validateExperimentalMetadataPrefetchOnMount(flags.ExperimentalMetadataPrefetchOnMount); err != nil {
-		return fmt.Errorf("%s: is not valid; error = %w", ExperimentalMetadataPrefetchOnMountFlag, err)
-	}
-
-	if err = config.IsTtlInSecsValid(flags.KernelListCacheTtlSeconds); err != nil {
-		return fmt.Errorf("kernelListCacheTtlSeconds: %w", err)
 	}
 
 	return

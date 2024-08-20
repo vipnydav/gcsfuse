@@ -1,4 +1,4 @@
-// Copyright 2023 Google Inc. All Rights Reserved.
+// Copyright 2023 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -36,7 +35,7 @@ type StorageClientConfig struct {
 	// ClientProtocol decides the go-sdk client to create.
 	ClientProtocol    cfg.Protocol
 	UserAgent         string
-	CustomEndpoint    *url.URL
+	CustomEndpoint    string
 	KeyFile           string
 	TokenUrl          string
 	ReuseTokenFromUrl bool

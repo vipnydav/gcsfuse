@@ -1,4 +1,4 @@
-// Copyright 2023 Google Inc. All Rights Reserved.
+// Copyright 2023 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -247,11 +247,17 @@ func (sc *statCacheBucketView) LookUpFolder(
 	now time.Time) (bool, *gcs.Folder) {
 	// Look up in the LRU cache.
 	hit, entry := sc.sharedCacheLookup(folderName, now)
-	if hit {
-		return hit, entry.f
+
+	if !hit {
+		return false, nil
+	}
+	// Adds scenario to check folder as well even if object with same name is already present
+	// TODO: should be removed once integration for lookup is completed
+	if entry.f == nil {
+		return false, nil
 	}
 
-	return false, nil
+	return true, entry.f
 }
 
 func (sc *statCacheBucketView) sharedCacheLookup(key string, now time.Time) (bool, *entry) {
@@ -273,15 +279,6 @@ func (sc *statCacheBucketView) sharedCacheLookup(key string, now time.Time) (boo
 
 func (sc *statCacheBucketView) InsertFolder(f *gcs.Folder, expiration time.Time) {
 	name := sc.key(f.Name)
-
-	// Return if there is already a better entry?
-	existing := sc.sharedCache.LookUp(name)
-	if existing != nil && existing.(entry).f != nil {
-		existingFolder := existing.(entry).f
-		if f.MetaGeneration != existingFolder.MetaGeneration && f.MetaGeneration < existingFolder.MetaGeneration {
-			return
-		}
-	}
 
 	e := entry{
 		f:          f,

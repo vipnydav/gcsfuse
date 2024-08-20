@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All Rights Reserved.
+// Copyright 2015 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ const (
 // Create a fake bucket with canned contents as described in the comments for
 // FakeBucketName.
 func MakeFakeBucket(ctx context.Context) (b gcs.Bucket) {
-	b = fake.NewFakeBucket(timeutil.RealClock(), FakeBucketName)
+	b = fake.NewFakeBucket(timeutil.RealClock(), FakeBucketName, gcs.NonHierarchical)
 
 	// Set up contents.
 	contents := map[string]string{

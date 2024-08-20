@@ -1,4 +1,4 @@
-// Copyright 2023 Google Inc. All Rights Reserved.
+// Copyright 2023 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import (
 	"time"
 
 	gcstesting "github.com/googlecloudplatform/gcsfuse/v2/internal/storage/fake/testing"
+	"github.com/googlecloudplatform/gcsfuse/v2/internal/storage/gcs"
 	"github.com/jacobsa/ogletest"
 	"github.com/jacobsa/timeutil"
 	"golang.org/x/net/context"
@@ -34,7 +35,7 @@ func init() {
 		deps.Clock = clock
 
 		// Set up the bucket.
-		deps.Bucket = NewFakeBucket(clock, "some_bucket")
+		deps.Bucket = NewFakeBucket(clock, "some_bucket", gcs.NonHierarchical)
 
 		return
 	}

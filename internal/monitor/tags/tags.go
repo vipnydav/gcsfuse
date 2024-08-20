@@ -1,4 +1,4 @@
-// Copyright 2022 Google Inc. All Rights Reserved.
+// Copyright 2022 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,6 +31,9 @@ var (
 
 	// FSError annotates the file system failed operations with the error type
 	FSError = tag.MustNewKey("fs_error")
+
+	// FSErrCategory reduces the cardinality of FSError by grouping errors together.
+	FSErrCategory = tag.MustNewKey("fs_error_category")
 
 	// ReadType annotates the read operation with the type - Sequential/Random
 	ReadType = tag.MustNewKey("read_type")

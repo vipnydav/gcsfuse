@@ -1,4 +1,4 @@
-// Copyright 2023 Google Inc. All Rights Reserved.
+// Copyright 2023 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -59,7 +59,7 @@ func (t *IntegrationTest) SetUp(ti *TestInfo) {
 	const cacheCapacity = 100
 	lruCache := lru.NewCache(mount.AverageSizeOfPositiveStatCacheEntry * cacheCapacity)
 	cache := metadata.NewStatCacheBucketView(lruCache, "")
-	t.wrapped = fake.NewFakeBucket(&t.clock, bucketName)
+	t.wrapped = fake.NewFakeBucket(&t.clock, bucketName, gcs.NonHierarchical)
 
 	t.bucket = caching.NewFastStatBucket(
 		ttl,

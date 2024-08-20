@@ -1,4 +1,4 @@
-// Copyright 2024 Google Inc. All Rights Reserved.
+// Copyright 2024 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,10 +22,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/googlecloudplatform/gcsfuse/v2/cfg"
 	"github.com/googlecloudplatform/gcsfuse/v2/internal/config"
 	"github.com/googlecloudplatform/gcsfuse/v2/internal/mount"
 	mountpkg "github.com/googlecloudplatform/gcsfuse/v2/internal/mount"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"github.com/urfave/cli"
 )
@@ -62,7 +64,7 @@ func parseArgs(t *FlagsTest, args []string) (flags *flagStorage) {
 // Tests
 ////////////////////////////////////////////////////////////////////////
 
-func (t *FlagsTest) Defaults() {
+func (t *FlagsTest) TestDefaults() {
 	f := parseArgs(t, []string{})
 
 	// File system
@@ -71,28 +73,28 @@ func (t *FlagsTest) Defaults() {
 
 	assert.Equal(t.T(), os.FileMode(0755), f.DirMode)
 	assert.Equal(t.T(), os.FileMode(0644), f.FileMode)
-	assert.Equal(t.T(), -1, f.Uid)
-	assert.Equal(t.T(), -1, f.Gid)
+	assert.EqualValues(t.T(), -1, f.Uid)
+	assert.EqualValues(t.T(), -1, f.Gid)
 	assert.False(t.T(), f.ImplicitDirs)
-	assert.False(t.T(), f.IgnoreInterrupts)
+	assert.True(t.T(), f.IgnoreInterrupts)
 	assert.Equal(t.T(), config.DefaultKernelListCacheTtlSeconds, f.KernelListCacheTtlSeconds)
 
 	// GCS
 	assert.Equal(t.T(), "", f.KeyFile)
-	assert.Equal(t.T(), -1, f.EgressBandwidthLimitBytesPerSecond)
-	assert.Equal(t.T(), -1, f.OpRateLimitHz)
+	assert.EqualValues(t.T(), -1, f.EgressBandwidthLimitBytesPerSecond)
+	assert.EqualValues(t.T(), -1, f.OpRateLimitHz)
 	assert.True(t.T(), f.ReuseTokenFromUrl)
-	assert.Equal(t.T(), nil, f.CustomEndpoint)
+	assert.Nil(t.T(), f.CustomEndpoint)
 	assert.False(t.T(), f.AnonymousAccess)
 
 	// Tuning
 	assert.Equal(t.T(), mount.DefaultStatCacheCapacity, f.StatCacheCapacity)
 	assert.Equal(t.T(), mount.DefaultStatOrTypeCacheTTL, f.StatCacheTTL)
 	assert.Equal(t.T(), mount.DefaultStatOrTypeCacheTTL, f.TypeCacheTTL)
-	assert.Equal(t.T(), 0, f.HttpClientTimeout)
+	assert.EqualValues(t.T(), 0, f.HttpClientTimeout)
 	assert.Equal(t.T(), "", f.TempDir)
 	assert.Equal(t.T(), config.DefaultMaxRetryAttempts, f.MaxRetryAttempts)
-	assert.Equal(t.T(), 2, f.RetryMultiplier)
+	assert.EqualValues(t.T(), 2, f.RetryMultiplier)
 	assert.False(t.T(), f.EnableNonexistentTypeCache)
 	assert.Equal(t.T(), 0, f.MaxConnsPerHost)
 
@@ -102,13 +104,13 @@ func (t *FlagsTest) Defaults() {
 	assert.False(t.T(), f.DebugInvariants)
 
 	// Post-mount actions
-	assert.Equal(t.T(), config.ExperimentalMetadataPrefetchOnMountDisabled, f.ExperimentalMetadataPrefetchOnMount)
+	assert.Equal(t.T(), cfg.ExperimentalMetadataPrefetchOnMountDisabled, f.ExperimentalMetadataPrefetchOnMount)
 
 	// Metrics
 	assert.Equal(t.T(), 0, f.PrometheusPort)
 }
 
-func (t *FlagsTest) Bools() {
+func (t *FlagsTest) TestBools() {
 	names := []string{
 		"implicit-dirs",
 		"reuse-token-from-url",
@@ -172,7 +174,7 @@ func (t *FlagsTest) Bools() {
 	assert.True(t.T(), f.EnableNonexistentTypeCache)
 }
 
-func (t *FlagsTest) DecimalNumbers() {
+func (t *FlagsTest) TestDecimalNumbers() {
 	args := []string{
 		"--uid=17",
 		"--gid=19",
@@ -186,18 +188,18 @@ func (t *FlagsTest) DecimalNumbers() {
 	}
 
 	f := parseArgs(t, args)
-	assert.Equal(t.T(), 17, f.Uid)
-	assert.Equal(t.T(), 19, f.Gid)
+	assert.EqualValues(t.T(), 17, f.Uid)
+	assert.EqualValues(t.T(), 19, f.Gid)
 	assert.Equal(t.T(), 123.4, f.EgressBandwidthLimitBytesPerSecond)
 	assert.Equal(t.T(), 56.78, f.OpRateLimitHz)
 	assert.Equal(t.T(), 8192, f.StatCacheCapacity)
 	assert.Equal(t.T(), 100, f.MaxIdleConnsPerHost)
 	assert.Equal(t.T(), 100, f.MaxConnsPerHost)
-	assert.Equal(t.T(), 234, f.KernelListCacheTtlSeconds)
-	assert.Equal(t.T(), 100, f.MaxRetryAttempts)
+	assert.EqualValues(t.T(), 234, f.KernelListCacheTtlSeconds)
+	assert.EqualValues(t.T(), 100, f.MaxRetryAttempts)
 }
 
-func (t *FlagsTest) OctalNumbers() {
+func (t *FlagsTest) TestOctalNumbers() {
 	args := []string{
 		"--dir-mode=711",
 		"--file-mode", "611",
@@ -208,7 +210,7 @@ func (t *FlagsTest) OctalNumbers() {
 	assert.Equal(t.T(), os.FileMode(0611), f.FileMode)
 }
 
-func (t *FlagsTest) Strings() {
+func (t *FlagsTest) TestStrings() {
 	args := []string{
 		"--key-file", "-asdf",
 		"--temp-dir=foobar",
@@ -222,10 +224,10 @@ func (t *FlagsTest) Strings() {
 	assert.Equal(t.T(), "foobar", f.TempDir)
 	assert.Equal(t.T(), "baz", f.OnlyDir)
 	assert.Equal(t.T(), mountpkg.HTTP2, f.ClientProtocol)
-	assert.Equal(t.T(), config.ExperimentalMetadataPrefetchOnMountAsynchronous, f.ExperimentalMetadataPrefetchOnMount)
+	assert.Equal(t.T(), cfg.ExperimentalMetadataPrefetchOnMountAsynchronous, f.ExperimentalMetadataPrefetchOnMount)
 }
 
-func (t *FlagsTest) Durations() {
+func (t *FlagsTest) TestDurations() {
 	args := []string{
 		"--stat-cache-ttl", "1m17s100ms",
 		"--type-cache-ttl", "50s900ms",
@@ -241,7 +243,7 @@ func (t *FlagsTest) Durations() {
 	assert.Equal(t.T(), 30*time.Second, f.MaxRetrySleep)
 }
 
-func (t *FlagsTest) Maps() {
+func (t *FlagsTest) TestSlice() {
 	args := []string{
 		"-o", "rw,nodev",
 		"-o", "user=jacobsa,noauto",
@@ -249,19 +251,10 @@ func (t *FlagsTest) Maps() {
 
 	f := parseArgs(t, args)
 
-	var keys sort.StringSlice
-	for k := range f.MountOptions {
-		keys = append(keys, k)
-	}
-
-	sort.Sort(keys)
-	assert.ElementsMatch(t.T(),
-		keys, []string{"noauto", "nodev", "rw", "user"})
-
-	assert.Equal(t.T(), "", f.MountOptions["noauto"])
-	assert.Equal(t.T(), "", f.MountOptions["nodev"])
-	assert.Equal(t.T(), "", f.MountOptions["rw"])
-	assert.Equal(t.T(), "jacobsa", f.MountOptions["user"])
+	sort.Strings(f.MountOptions)
+	require.Equal(t.T(), 2, len(f.MountOptions))
+	assert.Equal(t.T(), "rw,nodev", f.MountOptions[0])
+	assert.Equal(t.T(), "user=jacobsa,noauto", f.MountOptions[1])
 }
 
 func (t *FlagsTest) TestResolvePathForTheFlagInContext() {
@@ -303,76 +296,6 @@ func (t *FlagsTest) TestResolvePathForTheFlagsInContext() {
 	err = app.Run(fullArgs)
 
 	assert.Equal(t.T(), nil, err)
-}
-
-func (t *FlagsTest) TestValidateFlagsForZeroSequentialReadSize() {
-	flags := &flagStorage{
-		SequentialReadSizeMb:                0,
-		ExperimentalMetadataPrefetchOnMount: config.DefaultExperimentalMetadataPrefetchOnMount,
-	}
-
-	err := validateFlags(flags)
-
-	assert.NotEqual(t.T(), nil, err)
-	assert.Equal(t.T(), "SequentialReadSizeMb should be less than 1024", err.Error())
-}
-
-func (t *FlagsTest) TestValidateFlagsForSequentialReadSizeGreaterThan1024() {
-	flags := &flagStorage{
-		SequentialReadSizeMb:                2048,
-		ExperimentalMetadataPrefetchOnMount: config.DefaultExperimentalMetadataPrefetchOnMount,
-	}
-
-	err := validateFlags(flags)
-
-	assert.NotEqual(t.T(), nil, err)
-	assert.Equal(t.T(), "SequentialReadSizeMb should be less than 1024", err.Error())
-}
-
-func (t *FlagsTest) TestValidateFlagsForValidSequentialReadSize() {
-	flags := &flagStorage{
-		SequentialReadSizeMb:                10,
-		ExperimentalMetadataPrefetchOnMount: config.DefaultExperimentalMetadataPrefetchOnMount,
-	}
-
-	err := validateFlags(flags)
-
-	assert.Equal(t.T(), nil, err)
-}
-
-func (t *FlagsTest) TestValidateFlagsForSupportedExperimentalMetadataPrefetchOnMount() {
-	for _, input := range []string{
-		"disabled", "sync", "async",
-	} {
-		flags := &flagStorage{
-			// Unrelated fields, not being tested here, so set to sane values.
-			SequentialReadSizeMb: 200,
-			// The flag being tested.
-			ExperimentalMetadataPrefetchOnMount: input,
-		}
-
-		err := validateFlags(flags)
-
-		assert.Equal(t.T(), nil, err)
-	}
-}
-
-func (t *FlagsTest) TestValidateFlagsForUnsupportedExperimentalMetadataPrefetchOnMount() {
-	for _, input := range []string{
-		"", "unsupported",
-	} {
-		flags := &flagStorage{
-			// Unrelated fields, not being tested here, so set to sane values.
-			SequentialReadSizeMb: 200,
-			// The flag being tested.
-			ExperimentalMetadataPrefetchOnMount: input,
-		}
-
-		err := validateFlags(flags)
-
-		assert.NotEqual(t.T(), nil, err)
-		assert.ErrorContains(t.T(), err, fmt.Sprintf(config.UnsupportedMetadataPrefixModeError, input))
-	}
 }
 
 func (t *FlagsTest) Test_resolveConfigFilePaths() {

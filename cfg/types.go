@@ -1,4 +1,4 @@
-// Copyright 2024 Google Inc. All Rights Reserved.
+// Copyright 2024 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,17 +35,17 @@ func (o *Octal) UnmarshalText(text []byte) error {
 	return nil
 }
 
-func (o *Octal) String() string {
-	return fmt.Sprintf("%o", *o)
+func (o Octal) MarshalText() ([]byte, error) {
+	return []byte(strconv.FormatInt(int64(o), 8)), nil
 }
 
 // Protocol is the datatype that specifies the type of connection: http1/http2/grpc.
 type Protocol string
 
 const (
-	HTTP1 Protocol = "http1"
-	HTTP2 Protocol = "http2"
-	GRPC  Protocol = "grpc"
+	HTTP1 = "http1"
+	HTTP2 = "http2"
+	GRPC  = "grpc"
 )
 
 func (p *Protocol) UnmarshalText(text []byte) error {

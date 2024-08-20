@@ -1,4 +1,4 @@
-// Copyright 2023 Google Inc. All Rights Reserved.
+// Copyright 2023 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -58,7 +58,6 @@ func TestMain(m *testing.M) {
 	flagsSet := [][]string{{"--implicit-dirs"}}
 
 	if hnsFlagSet, err := setup.AddHNSFlagForHierarchicalBucket(ctx, storageClient); err == nil {
-		hnsFlagSet = append(hnsFlagSet, "--implicit-dirs")
 		flagsSet = append(flagsSet, hnsFlagSet)
 	}
 

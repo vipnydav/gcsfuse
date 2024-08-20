@@ -1,4 +1,4 @@
-// Copyright 2022 Google Inc. All Rights Reserved.
+// Copyright 2022 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -1309,7 +1309,7 @@ func (testSuite *BucketHandleTest) TestRenameFolderWithError() {
 }
 
 func (testSuite *BucketHandleTest) TestCreateFolderWithError() {
-	createFolderReq := controlpb.CreateFolderRequest{Parent: fmt.Sprintf(FullBucketPathHNS, TestBucketName), FolderId: TestFolderName}
+	createFolderReq := controlpb.CreateFolderRequest{Parent: fmt.Sprintf(FullBucketPathHNS, TestBucketName), FolderId: TestFolderName, Recursive: true}
 	testSuite.mockClient.On("CreateFolder", context.Background(), &createFolderReq, mock.Anything).Return(nil, errors.New("mock error"))
 	testSuite.bucketHandle.bucketType = gcs.Hierarchical
 
@@ -1324,7 +1324,7 @@ func (testSuite *BucketHandleTest) TestCreateFolderWithGivenName() {
 	mockFolder := controlpb.Folder{
 		Name: fmt.Sprintf(FullFolderPathHNS, TestBucketName, TestFolderName),
 	}
-	createFolderReq := controlpb.CreateFolderRequest{Parent: fmt.Sprintf(FullBucketPathHNS, TestBucketName), FolderId: TestFolderName}
+	createFolderReq := controlpb.CreateFolderRequest{Parent: fmt.Sprintf(FullBucketPathHNS, TestBucketName), FolderId: TestFolderName, Recursive: true}
 	testSuite.mockClient.On("CreateFolder", context.Background(), &createFolderReq, mock.Anything).Return(&mockFolder, nil)
 	testSuite.bucketHandle.bucketType = gcs.Hierarchical
 

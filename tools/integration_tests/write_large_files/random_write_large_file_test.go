@@ -1,4 +1,4 @@
-// Copyright 2023 Google Inc. All Rights Reserved.
+// Copyright 2023 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,10 +34,7 @@ const (
 
 func TestWriteLargeFileRandomly(t *testing.T) {
 	randomWriteDir := path.Join(setup.MntDir(), DirForRandomWrite)
-	err := os.Mkdir(randomWriteDir, setup.FilePermission_0600)
-	if err != nil {
-		t.Fatalf("Error in creating directory: %v", err)
-	}
+	setup.SetupTestDirectory(DirForRandomWrite)
 	filePath := path.Join(randomWriteDir, FiveHundredMBFile)
 
 	// Clean up.

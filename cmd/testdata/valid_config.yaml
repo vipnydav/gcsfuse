@@ -1,0 +1,43 @@
+app-name: hello
+write:
+  create-empty-file: true
+file-cache:
+  cache-file-for-range-read: true
+  download-chunk-size-mb: 300
+  enable-crc: true
+  enable-parallel-downloads: true
+  max-parallel-downloads: 200
+  max-size-mb: 40
+  parallel-downloads-per-file: 10
+  write-buffer-size: 8192
+gcs-auth:
+  anonymous-access: true
+  key-file: "~/key.file"
+  reuse-token-from-url: false
+  token-url: "www.abc.com"
+gcs-connection:
+  billing-project: abc
+  client-protocol: http2
+  custom-endpoint: www.abc.com
+  experimental-enable-json-read: true
+  grpc-conn-pool-size: 200
+  http-client-timeout: 400s
+  limit-bytes-per-sec: 20
+  limit-ops-per-sec: 30
+  max-conns-per-host: 400
+  max-idle-conns-per-host: 20
+  sequential-read-size-mb: 450
+file-system:
+  dir-mode: 0777
+  disable-parallel-dirops: true
+  file-mode: 0666
+  fuse-options: "ro"
+  gid: 7
+  uid: 8
+  ignore-interrupts: false
+  kernel-list-cache-ttl-secs: 300
+  rename-dir-limit: 10
+  temp-dir: ~/temp
+list:
+  enable-empty-managed-folders: true
+enable-hns: true

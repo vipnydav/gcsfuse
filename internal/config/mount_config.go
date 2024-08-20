@@ -1,4 +1,4 @@
-// Copyright 2021 Google Inc. All Rights Reserved.
+// Copyright 2021 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,13 +16,12 @@ package config
 
 import (
 	"math"
+
+	"github.com/googlecloudplatform/gcsfuse/v2/cfg"
+	"github.com/googlecloudplatform/gcsfuse/v2/internal/cache/util"
 )
 
 const (
-	// Default log rotation config values.
-	defaultMaxFileSizeMB   = 512
-	defaultBackupFileCount = 10
-	defaultCompress        = true
 
 	// TtlInSecsUnsetSentinel is the value internally
 	// set for metada-cache:ttl-secs
@@ -41,35 +40,25 @@ const (
 	// when it is not set in the gcsfuse mount config file.
 	StatCacheMaxSizeMBUnsetSentinel int64 = math.MinInt64
 
-	DefaultFileCacheMaxSizeMB               int64 = -1
-	DefaultEnableEmptyManagedFoldersListing       = false
-	DefaultGrpcConnPoolSize                       = 1
-	DefaultAnonymousAccess                        = false
-	DefaultEnableHNS                              = false
-	DefaultIgnoreInterrupts                       = true
-	DefaultPrometheusPort                         = 0
-
-	// ExperimentalMetadataPrefetchOnMountDisabled is the mode without metadata-prefetch.
-	ExperimentalMetadataPrefetchOnMountDisabled string = "disabled"
-	// ExperimentalMetadataPrefetchOnMountSynchronous is the prefetch-mode where mounting is not marked complete until prefetch is complete.
-	ExperimentalMetadataPrefetchOnMountSynchronous string = "sync"
-	// ExperimentalMetadataPrefetchOnMountAsynchronous is the prefetch-mode where mounting is marked complete once prefetch has started.
-	ExperimentalMetadataPrefetchOnMountAsynchronous string = "async"
-	// DefaultExperimentalMetadataPrefetchOnMount is default value of metadata-prefetch i.e. if not set by user; current it is ExperimentalMetadataPrefetchOnMountDisabled.
-	DefaultExperimentalMetadataPrefetchOnMount = ExperimentalMetadataPrefetchOnMountDisabled
+	DefaultEnableEmptyManagedFoldersListing = false
+	DefaultGrpcConnPoolSize                 = 1
+	DefaultAnonymousAccess                  = false
+	DefaultEnableHNS                        = false
+	DefaultIgnoreInterrupts                 = true
+	DefaultPrometheusPort                   = 0
 
 	DefaultKernelListCacheTtlSeconds int64 = 0
+	DefaultMaxRetryAttempts                = int64(0)
 
+	// File Cache Config constants.
+
+	DefaultFileCacheMaxSizeMB       = -1
 	DefaultEnableCRC                = false
 	DefaultEnableParallelDownloads  = false
 	DefaultDownloadChunkSizeMB      = 50
 	DefaultParallelDownloadsPerFile = 16
-	DefaultMaxRetryAttempts         = int64(0)
+	DefaultWriteBufferSize          = int64(4 * util.MiB)
 )
-
-type WriteConfig struct {
-	CreateEmptyFile bool `yaml:"create-empty-file"`
-}
 
 type LogConfig struct {
 	Severity        string          `yaml:"severity"`
@@ -119,6 +108,7 @@ type FileCacheConfig struct {
 	MaxParallelDownloads     int   `yaml:"max-parallel-downloads,omitempty"`
 	DownloadChunkSizeMB      int   `yaml:"download-chunk-size-mb,omitempty"`
 	EnableCRC                bool  `yaml:"enable-crc"`
+	WriteBufferSize          int64 `yaml:"write-buffer-size,omitempty"`
 }
 
 type MetadataCacheConfig struct {
@@ -147,7 +137,7 @@ type GCSRetries struct {
 }
 
 type MountConfig struct {
-	WriteConfig         `yaml:"write"`
+	cfg.WriteConfig     `yaml:"write"`
 	LogConfig           `yaml:"logging"`
 	FileCacheConfig     `yaml:"file-cache"`
 	CacheDir            string `yaml:"cache-dir"`
@@ -176,29 +166,28 @@ type LogRotateConfig struct {
 	Compress        bool `yaml:"compress"`
 }
 
-func DefaultLogRotateConfig() LogRotateConfig {
-	return LogRotateConfig{
-		MaxFileSizeMB:   defaultMaxFileSizeMB,
-		BackupFileCount: defaultBackupFileCount,
-		Compress:        defaultCompress,
-	}
-}
-
 func NewMountConfig() *MountConfig {
 	mountConfig := &MountConfig{}
+	logConfig := cfg.DefaultLoggingConfig()
+	logRotateConfig := logConfig.LogRotate
 	mountConfig.LogConfig = LogConfig{
 		// Making the default severity as INFO.
-		Severity: INFO,
+		Severity: string(logConfig.Severity),
 		// Setting default values of log rotate config.
-		LogRotateConfig: DefaultLogRotateConfig(),
+		LogRotateConfig: LogRotateConfig{
+			MaxFileSizeMB:   int(logRotateConfig.MaxFileSizeMb),
+			BackupFileCount: int(logRotateConfig.BackupFileCount),
+			Compress:        logRotateConfig.Compress,
+		},
 	}
 	mountConfig.FileCacheConfig = FileCacheConfig{
 		MaxSizeMB:                DefaultFileCacheMaxSizeMB,
 		EnableParallelDownloads:  DefaultEnableParallelDownloads,
 		ParallelDownloadsPerFile: DefaultParallelDownloadsPerFile,
-		MaxParallelDownloads:     DefaultMaxParallelDownloads(),
+		MaxParallelDownloads:     cfg.DefaultMaxParallelDownloads(),
 		DownloadChunkSizeMB:      DefaultDownloadChunkSizeMB,
 		EnableCRC:                DefaultEnableCRC,
+		WriteBufferSize:          DefaultWriteBufferSize,
 	}
 	mountConfig.MetadataCacheConfig = MetadataCacheConfig{
 		TtlInSeconds:       TtlInSecsUnsetSentinel,

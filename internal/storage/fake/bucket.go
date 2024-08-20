@@ -1,4 +1,4 @@
-// Copyright 2023 Google Inc. All Rights Reserved.
+// Copyright 2023 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"hash/crc32"
 	"io"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -37,8 +38,8 @@ import (
 var crc32cTable = crc32.MakeTable(crc32.Castagnoli)
 
 // Equivalent to NewConn(clock).GetBucket(name).
-func NewFakeBucket(clock timeutil.Clock, name string) gcs.Bucket {
-	b := &bucket{clock: clock, name: name}
+func NewFakeBucket(clock timeutil.Clock, name string, bucketType gcs.BucketType) gcs.Bucket {
+	b := &bucket{clock: clock, name: name, bucketType: bucketType}
 	b.mu = syncutil.NewInvariantMutex(b.checkInvariants)
 	return b
 }
@@ -268,12 +269,36 @@ func (b *bucket) mintObject(
 // LOCKS_REQUIRED(b.mu)
 func (b *bucket) mintFolder(folderName string) (f gcs.Folder) {
 	f = gcs.Folder{
-		Name:           folderName,
-		MetaGeneration: 1,
-		UpdateTime:     b.clock.Now(),
+		Name:       folderName,
+		UpdateTime: b.clock.Now(),
 	}
 
 	return
+}
+
+// In a hierarchical bucket, all directory objects are also retained as folder entries,
+// even if we create objects with non-control client API.
+// Therefore, whenever we create directory objects in the fake bucket,
+// we also need to create a corresponding folder entry for them in HNS.
+//
+// For example, when creating an object A/B/a.txt where A and B are implicit directories.
+// In our existing flow in the fake bucket, we ignore adding entries for A and B.
+// In HNS, we have to add these implicit directories as folder entries.
+func (b *bucket) addFolderEntry(path string) {
+	path = filepath.Dir(path) // Get the directory part of the path
+	parts := strings.Split(path, string(filepath.Separator))
+
+	// This is for adding implicit directories as folder entries.
+	// For example, createObject(A/B/a.txt) where A and B are implicit directories.
+	// We need to add both "A" and "A/B/" as folder entries.
+	for i := range parts {
+		folder := gcs.Folder{Name: strings.Join(parts[:i+1], string(filepath.Separator)) + string(filepath.Separator)}
+		existingIndex := b.folders.find(folder.Name)
+		if existingIndex == len(b.folders) {
+			b.folders = append(b.folders, folder)
+		}
+	}
+	sort.Sort(b.folders)
 }
 
 // LOCKS_REQUIRED(b.mu)
@@ -391,6 +416,9 @@ func (b *bucket) createObjectLocked(
 		sort.Sort(b.objects)
 	}
 
+	if b.BucketType() == gcs.Hierarchical {
+		b.addFolderEntry(req.Name)
+	}
 	return
 }
 
@@ -544,6 +572,24 @@ func (b *bucket) ListObjects(
 				if len(listing.CollapsedRuns) == 0 ||
 					listing.CollapsedRuns[len(listing.CollapsedRuns)-1] != resultPrefix {
 					listing.CollapsedRuns = append(listing.CollapsedRuns, resultPrefix)
+				}
+
+				// In hierarchical buckets, a directory is represented both as a prefix and a folder.
+				// Consequently, if a folder entry is discovered, it indicates that it's exclusively a prefix entry.
+				//
+				// This check was incorporated because createFolder needs to add an entry to the objects, and
+				// we cannot distinguish from that entry whether it's solely a prefix.
+				//
+				// For example, mkdir test will create both a folder entry and a test/ prefix.
+				// In our createFolder fake bucket implementation, we created both a folder and an object for
+				// the given folderName. There, we can't define whether it's only a prefix and not an object.
+				// Hence, we added this check here.
+				//
+				// Note that in a real ListObject call, the entry will appear only as a prefix and not as an object.
+				folderIndex := b.folders.find(resultPrefix)
+				if folderIndex < len(b.folders) {
+					lastResultWasPrefix = true
+					continue
 				}
 
 				isTrailingDelimiter := (delimiterIndex == len(nameMinusQueryPrefix)-1)
@@ -924,12 +970,25 @@ func (b *bucket) DeleteFolder(ctx context.Context, folderName string) (err error
 
 	// Do we possess the folder with the given name?
 	index := b.folders.find(folderName)
-	if index == len(b.objects) {
+	if index == len(b.folders) {
 		return
 	}
 
 	// Remove the folder.
 	b.folders = append(b.folders[:index], b.folders[index+1:]...)
+
+	// In the hierarchical bucket, control client API deletes folders as well as
+	// prefixes for backward compatibility. Therefore, a prefix object
+	// entry needs to be deleted here as well.
+
+	// Do we possess the prefix object with the given name?
+	index = b.objects.find(folderName)
+	if index == len(b.objects) {
+		return
+	}
+
+	// Remove the prefix object.
+	b.objects = append(b.objects[:index], b.objects[index+1:]...)
 
 	return
 }
@@ -947,7 +1006,7 @@ func (b *bucket) GetFolder(ctx context.Context, foldername string) (*gcs.Folder,
 		return nil, err
 	}
 
-	return &gcs.Folder{Name: foldername, MetaGeneration: b.folders[index].MetaGeneration}, nil
+	return &gcs.Folder{Name: foldername}, nil
 }
 
 func (b *bucket) CreateFolder(ctx context.Context, folderName string) (*gcs.Folder, error) {
@@ -974,6 +1033,25 @@ func (b *bucket) CreateFolder(ctx context.Context, folderName string) (*gcs.Fold
 		sort.Sort(b.folders)
 	}
 
+	// In the hierarchical bucket, control client API creates folders  as well as
+	// prefixes for backward compatibility. Therefore, a prefix object
+	// entry needs to be created here as well.
+
+	// Find any existing record for this name.
+	existingObjectPrefixIndex := b.objects.find(folderName)
+
+	// Create a prefix object record from the given attributes.
+	var prefixObject fakeObject
+	prefixObject.metadata = gcs.Object{Name: folderName}
+
+	// Replace an entry in or add an entry to our list of objects.
+	if existingObjectPrefixIndex < len(b.objects) {
+		b.objects[existingObjectPrefixIndex] = prefixObject
+	} else {
+		b.objects = append(b.objects, prefixObject)
+		sort.Sort(b.objects)
+	}
+
 	return &fo, nil
 }
 
@@ -984,7 +1062,7 @@ func (b *bucket) RenameFolder(ctx context.Context, folderName string, destinatio
 		return nil, err
 	}
 
-	// Does the folder exist?
+	// Check if the source folder exists.
 	srcIndex := b.folders.find(folderName)
 	if srcIndex == len(b.folders) {
 		err = &gcs.NotFoundError{
@@ -993,30 +1071,33 @@ func (b *bucket) RenameFolder(ctx context.Context, folderName string, destinatio
 		return nil, err
 	}
 
-	dst := b.folders[srcIndex]
-	dst.Name = destinationFolderId
-
-	// Insert into our array.
-	existingIndex := b.folders.find(folderName)
-	if existingIndex < len(b.folders) {
-		b.folders[existingIndex] = dst
-	} else {
-		b.folders = append(b.folders, dst)
-		sort.Sort(b.folders)
+	// Find all folders starting with the given prefix and update their names.
+	for i := range b.folders {
+		if strings.HasPrefix(b.folders[i].Name, folderName) {
+			b.folders[i].Name = strings.Replace(b.folders[i].Name, folderName, destinationFolderId, 1)
+			b.folders[i].UpdateTime = time.Now()
+		}
 	}
 
+	// Sort the updated folders.
+	sort.Sort(b.folders)
+
+	// Find all objects starting with the given prefix and update their names.
+	for i := range b.objects {
+		if strings.HasPrefix(b.objects[i].metadata.Name, folderName) {
+			b.objects[i].metadata.Name = strings.Replace(b.objects[i].metadata.Name, folderName, destinationFolderId, 1)
+			b.objects[i].metadata.Updated = time.Now()
+		}
+	}
+
+	// Sort the updated objects.
+	sort.Sort(b.objects)
+
+	// Return the updated folder.
 	folder := &gcs.Folder{
-		Name:           destinationFolderId,
-		MetaGeneration: 1,
-		UpdateTime:     time.Now()}
-
-	// Delete the src folder?
-	index := b.folders.find(folderName)
-	if index == len(b.folders) {
-		return folder, nil
+		Name:       destinationFolderId,
+		UpdateTime: time.Now(),
 	}
-	// Remove the src folder?
-	b.folders = append(b.folders[:index], b.folders[index+1:]...)
 
 	return folder, nil
 }

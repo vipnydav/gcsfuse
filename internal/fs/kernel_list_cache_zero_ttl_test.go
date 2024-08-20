@@ -1,4 +1,4 @@
-// Copyright 2024 Google Inc. All Rights Reserved.
+// Copyright 2024 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import (
 	"path"
 	"testing"
 
+	"github.com/googlecloudplatform/gcsfuse/v2/cfg"
 	"github.com/googlecloudplatform/gcsfuse/v2/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -35,10 +36,12 @@ type KernelListCacheTestWithZeroTtl struct {
 
 func (t *KernelListCacheTestWithZeroTtl) SetupSuite() {
 	t.serverCfg.ImplicitDirectories = true
-	t.serverCfg.MountConfig = &config.MountConfig{
-		FileSystemConfig: config.FileSystemConfig{
-			KernelListCacheTtlSeconds: 0,
+	t.serverCfg.NewConfig = &cfg.Config{
+		FileSystem: cfg.FileSystemConfig{
+			KernelListCacheTtlSecs: 0,
 		},
+	}
+	t.serverCfg.MountConfig = &config.MountConfig{
 		MetadataCacheConfig: config.MetadataCacheConfig{
 			TtlInSeconds: 0,
 		},

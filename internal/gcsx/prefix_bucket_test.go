@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All Rights Reserved.
+// Copyright 2015 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@ func (t *PrefixBucketTest) SetUp(ti *TestInfo) {
 
 	t.ctx = ti.Ctx
 	t.prefix = "foo_"
-	t.wrapped = fake.NewFakeBucket(timeutil.RealClock(), "some_bucket")
+	t.wrapped = fake.NewFakeBucket(timeutil.RealClock(), "some_bucket", gcs.NonHierarchical)
 
 	t.bucket, err = gcsx.NewPrefixBucket(t.prefix, t.wrapped)
 	AssertEq(nil, err)
@@ -401,7 +401,7 @@ func (t *PrefixBucketTest) DeleteObject() {
 
 func TestGetFolder_Prefix(t *testing.T) {
 	prefix := "foo_"
-	wrapped := fake.NewFakeBucket(timeutil.RealClock(), "some_bucket")
+	wrapped := fake.NewFakeBucket(timeutil.RealClock(), "some_bucket", gcs.NonHierarchical)
 	bucket, err := gcsx.NewPrefixBucket(prefix, wrapped)
 	require.Nil(t, err)
 	folderName := "taco"
@@ -415,12 +415,12 @@ func TestGetFolder_Prefix(t *testing.T) {
 		folderName)
 
 	assert.Nil(nil, err)
-	assert.Equal(t, name, result.Name)
+	assert.Equal(t, folderName, result.Name)
 }
 
 func TestDeleteFolder(t *testing.T) {
 	prefix := "foo_"
-	wrapped := fake.NewFakeBucket(timeutil.RealClock(), "some_bucket")
+	wrapped := fake.NewFakeBucket(timeutil.RealClock(), "some_bucket", gcs.NonHierarchical)
 	bucket, err := gcsx.NewPrefixBucket(prefix, wrapped)
 	require.Nil(t, err)
 	folderName := "taco"
@@ -449,7 +449,7 @@ func TestRenameFolder(t *testing.T) {
 	old_suffix := "test"
 	name := prefix + old_suffix
 	new_suffix := "new_test"
-	wrapped := fake.NewFakeBucket(timeutil.RealClock(), "some_bucket")
+	wrapped := fake.NewFakeBucket(timeutil.RealClock(), "some_bucket", gcs.NonHierarchical)
 	bucket, err := gcsx.NewPrefixBucket(prefix, wrapped)
 	require.Nil(t, err)
 	ctx := context.Background()
@@ -472,13 +472,14 @@ func TestCreateFolder(t *testing.T) {
 	prefix := "foo_"
 	var err error
 	suffix := "test"
-	wrapped := fake.NewFakeBucket(timeutil.RealClock(), "some_bucket")
+	wrapped := fake.NewFakeBucket(timeutil.RealClock(), "some_bucket", gcs.NonHierarchical)
 	bucket, err := gcsx.NewPrefixBucket(prefix, wrapped)
 	require.NoError(t, err)
 	ctx := context.Background()
 
-	_, err = bucket.CreateFolder(ctx, suffix)
+	f, err := bucket.CreateFolder(ctx, suffix)
 
+	assert.Equal(t, f.Name, suffix)
 	assert.NoError(t, err)
 	// Folder should get created
 	_, err = bucket.GetFolder(ctx, suffix)

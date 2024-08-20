@@ -1,4 +1,4 @@
-//Copyright 2023 Google Inc. All Rights Reserved.
+//Copyright 2023 Google LLC
 //
 //Licensed under the Apache License, Version 2.0 (the "License");
 //you may not use this file except in compliance with the License.
@@ -70,6 +70,9 @@ func runTestsOnGivenMountedTestBucket(bucketName string, flags [][]string, rootM
 		// Unmounting can happen on rootMntDir. Changing mntDir to rootMntDir for unmounting.
 		setup.SetMntDir(rootMntDir)
 		setup.UnMountAndThrowErrorInFailure(flags[i], successCode)
+		if successCode != 0 {
+			return
+		}
 	}
 	return
 }

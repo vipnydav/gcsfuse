@@ -1,4 +1,4 @@
-// Copyright 2024 Google Inc. All Rights Reserved.
+// Copyright 2024 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,6 +35,12 @@ func PopulateNewConfigFromLegacyFlagsAndConfig(c cliContext, flags *flagStorage,
 		return nil, fmt.Errorf("PopulateNewConfigFromLegacyFlagsAndConfig: unexpected nil flags or mount config")
 	}
 
+	// Resolve custom endpoint url type to string.
+	var customEndPoint string
+	if flags.CustomEndpoint != nil {
+		customEndPoint = flags.CustomEndpoint.String()
+	}
+
 	resolvedConfig := &cfg.Config{}
 
 	structuredFlags := &map[string]interface{}{
@@ -46,9 +52,9 @@ func PopulateNewConfigFromLegacyFlagsAndConfig(c cliContext, flags *flagStorage,
 			"fuse":                        flags.DebugFuse,
 		},
 		"file-system": map[string]interface{}{
-			"dir-mode":  flags.DirMode,
-			"file-mode": flags.FileMode,
-			// Todo: "fuse-options":      nil,
+			"dir-mode":                   flags.DirMode,
+			"file-mode":                  flags.FileMode,
+			"fuse-options":               flags.MountOptions,
 			"gid":                        flags.Gid,
 			"ignore-interrupts":          flags.IgnoreInterrupts,
 			"rename-dir-limit":           flags.RenameDirLimit,
@@ -66,7 +72,7 @@ func PopulateNewConfigFromLegacyFlagsAndConfig(c cliContext, flags *flagStorage,
 		"gcs-connection": map[string]interface{}{
 			"billing-project":               flags.BillingProject,
 			"client-protocol":               string(flags.ClientProtocol),
-			"custom-endpoint":               flags.CustomEndpoint,
+			"custom-endpoint":               customEndPoint,
 			"experimental-enable-json-read": flags.ExperimentalEnableJsonRead,
 			"http-client-timeout":           flags.HttpClientTimeout,
 			"limit-bytes-per-sec":           flags.EgressBandwidthLimitBytesPerSecond,
@@ -147,6 +153,12 @@ func PopulateNewConfigFromLegacyFlagsAndConfig(c cliContext, flags *flagStorage,
 	overrideWithFlag(c, "max-retry-attempts", &resolvedConfig.GcsRetries.MaxRetryAttempts, maxRetryAttempts)
 	overrideWithFlag(c, "prometheus-port", &resolvedConfig.Metrics.PrometheusPort, prometheusPort)
 
+	if err := cfg.ValidateConfig(resolvedConfig); err != nil {
+		return nil, fmt.Errorf("cfg.ValidateConfig: %w", err)
+	}
+	if err := cfg.Rationalize(resolvedConfig); err != nil {
+		return nil, fmt.Errorf("cfg.Rationalize: %w", err)
+	}
 	return resolvedConfig, nil
 }
 

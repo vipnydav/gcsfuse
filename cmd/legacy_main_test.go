@@ -1,4 +1,4 @@
-// Copyright 2024 Google Inc. All Rights Reserved.
+// Copyright 2024 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ import (
 	"testing"
 
 	"github.com/googlecloudplatform/gcsfuse/v2/cfg"
-	"github.com/googlecloudplatform/gcsfuse/v2/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -44,7 +43,7 @@ func (t *MainTest) TestCreateStorageHandle() {
 		GcsAuth:       cfg.GcsAuthConfig{KeyFile: "testdata/test_creds.json"}}
 
 	userAgent := "AppName"
-	storageHandle, err := createStorageHandle(newConfig, &config.MountConfig{}, userAgent)
+	storageHandle, err := createStorageHandle(newConfig, userAgent)
 
 	assert.Equal(t.T(), nil, err)
 	assert.NotEqual(t.T(), nil, storageHandle)
@@ -57,7 +56,7 @@ func (t *MainTest) TestCreateStorageHandle_WithClientProtocolAsGRPC() {
 	}
 
 	userAgent := "AppName"
-	storageHandle, err := createStorageHandle(newConfig, &config.MountConfig{}, userAgent)
+	storageHandle, err := createStorageHandle(newConfig, userAgent)
 
 	assert.Equal(t.T(), nil, err)
 	assert.NotEqual(t.T(), nil, storageHandle)
@@ -67,7 +66,7 @@ func (t *MainTest) TestGetUserAgentWhenMetadataImageTypeEnvVarIsSet() {
 	os.Setenv("GCSFUSE_METADATA_IMAGE_TYPE", "DLVM")
 	defer os.Unsetenv("GCSFUSE_METADATA_IMAGE_TYPE")
 
-	mountConfig := &config.MountConfig{}
+	mountConfig := &cfg.Config{}
 	userAgent := getUserAgent("AppName", getConfigForUserAgent(mountConfig))
 	expectedUserAgent := strings.TrimSpace(fmt.Sprintf("gcsfuse/%s AppName (GPN:gcsfuse-DLVM) (Cfg:0:0)", getVersion()))
 
@@ -75,7 +74,7 @@ func (t *MainTest) TestGetUserAgentWhenMetadataImageTypeEnvVarIsSet() {
 }
 
 func (t *MainTest) TestGetUserAgentWhenMetadataImageTypeEnvVarIsNotSet() {
-	mountConfig := &config.MountConfig{}
+	mountConfig := &cfg.Config{}
 	userAgent := getUserAgent("AppName", getConfigForUserAgent(mountConfig))
 	expectedUserAgent := strings.TrimSpace(fmt.Sprintf("gcsfuse/%s (GPN:gcsfuse-AppName) (Cfg:0:0)", getVersion()))
 
@@ -83,17 +82,17 @@ func (t *MainTest) TestGetUserAgentWhenMetadataImageTypeEnvVarIsNotSet() {
 }
 
 func (t *MainTest) TestGetUserAgentConfigWithNoFileCache() {
-	mountConfig := &config.MountConfig{}
+	mountConfig := &cfg.Config{}
 	userAgent := getUserAgent("AppName", getConfigForUserAgent(mountConfig))
 	expectedUserAgent := strings.TrimSpace(fmt.Sprintf("gcsfuse/%s (GPN:gcsfuse-AppName) (Cfg:0:0)", getVersion()))
 	assert.Equal(t.T(), expectedUserAgent, userAgent)
 }
 
 func (t *MainTest) TestGetUserAgentConfigWithFileCacheEnabledRandomReadEnabled() {
-	mountConfig := &config.MountConfig{
+	mountConfig := &cfg.Config{
 		CacheDir: "//tmp//folder//",
-		FileCacheConfig: config.FileCacheConfig{
-			MaxSizeMB:             -1,
+		FileCache: cfg.FileCacheConfig{
+			MaxSizeMb:             -1,
 			CacheFileForRangeRead: true,
 		},
 	}
@@ -104,10 +103,10 @@ func (t *MainTest) TestGetUserAgentConfigWithFileCacheEnabledRandomReadEnabled()
 
 func (t *MainTest) TestGetUserAgentConfigWithFileCacheEnabledRandomDisabled() {
 	// Test File Cache Enabled but Random Read Disabled
-	mountConfig := &config.MountConfig{
+	mountConfig := &cfg.Config{
 		CacheDir: "//tmp//folder//",
-		FileCacheConfig: config.FileCacheConfig{
-			MaxSizeMB: -1,
+		FileCache: cfg.FileCacheConfig{
+			MaxSizeMb: -1,
 		},
 	}
 	userAgent := getUserAgent("AppName", getConfigForUserAgent(mountConfig))
@@ -116,9 +115,9 @@ func (t *MainTest) TestGetUserAgentConfigWithFileCacheEnabledRandomDisabled() {
 }
 func (t *MainTest) TestGetUserAgentConfigWithFileCacheSizeSetCacheDirNotSet() {
 	// Test File cache disabled where MaxSize is set but Cache Dir is not set.
-	mountConfig := &config.MountConfig{
-		FileCacheConfig: config.FileCacheConfig{
-			MaxSizeMB: -1,
+	mountConfig := &cfg.Config{
+		FileCache: cfg.FileCacheConfig{
+			MaxSizeMb: -1,
 		},
 	}
 	userAgent := getUserAgent("AppName", getConfigForUserAgent(mountConfig))
@@ -128,10 +127,10 @@ func (t *MainTest) TestGetUserAgentConfigWithFileCacheSizeSetCacheDirNotSet() {
 
 func (t *MainTest) TestGetUserAgentConfigWithCacheDirSetMaxSizeDisabled() {
 	// Test File Cache disabled when Cache Dir is given but maxSize is set 0.
-	mountConfig := &config.MountConfig{
+	mountConfig := &cfg.Config{
 		CacheDir: "//tmp//folder//",
-		FileCacheConfig: config.FileCacheConfig{
-			MaxSizeMB: 0,
+		FileCache: cfg.FileCacheConfig{
+			MaxSizeMb: 0,
 		},
 	}
 	userAgent := getUserAgent("AppName", getConfigForUserAgent(mountConfig))
@@ -143,7 +142,7 @@ func (t *MainTest) TestGetUserAgentWhenMetadataImageTypeEnvVarSetAndAppNameNotSe
 	os.Setenv("GCSFUSE_METADATA_IMAGE_TYPE", "DLVM")
 	defer os.Unsetenv("GCSFUSE_METADATA_IMAGE_TYPE")
 
-	mountConfig := &config.MountConfig{}
+	mountConfig := &cfg.Config{}
 	userAgent := getUserAgent("", getConfigForUserAgent(mountConfig))
 	expectedUserAgent := strings.TrimSpace(fmt.Sprintf("gcsfuse/%s (GPN:gcsfuse-DLVM) (Cfg:0:0)", getVersion()))
 

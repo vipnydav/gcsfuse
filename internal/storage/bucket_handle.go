@@ -1,4 +1,4 @@
-// Copyright 2022 Google Inc. All Rights Reserved.
+// Copyright 2022 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ import (
 	control "cloud.google.com/go/storage/control/apiv2"
 	"cloud.google.com/go/storage/control/apiv2/controlpb"
 	"github.com/googleapis/gax-go/v2"
+	"github.com/googleapis/gax-go/v2/apierror"
 	"github.com/googlecloudplatform/gcsfuse/v2/internal/logger"
 	"github.com/googlecloudplatform/gcsfuse/v2/internal/storage/gcs"
 	"github.com/googlecloudplatform/gcsfuse/v2/internal/storage/storageutil"
@@ -521,6 +522,12 @@ func (b *bucketHandle) GetFolder(ctx context.Context, folderName string) (*gcs.F
 
 	if err != nil {
 		err = fmt.Errorf("error getting metadata for folder: %s, %w", folderName, err)
+		var gcsAPIErr *apierror.APIError
+		if errors.As(err, &gcsAPIErr) {
+			if "NotFound" == gcsAPIErr.GRPCStatus().Code().String() {
+				return nil, &gcs.NotFoundError{Err: err}
+			}
+		}
 		return nil, err
 	}
 
@@ -530,8 +537,9 @@ func (b *bucketHandle) GetFolder(ctx context.Context, folderName string) (*gcs.F
 
 func (b *bucketHandle) CreateFolder(ctx context.Context, folderName string) (*gcs.Folder, error) {
 	req := &controlpb.CreateFolderRequest{
-		Parent:   fmt.Sprintf(FullBucketPathHNS, b.bucketName),
-		FolderId: folderName,
+		Parent:    fmt.Sprintf(FullBucketPathHNS, b.bucketName),
+		FolderId:  folderName,
+		Recursive: true,
 	}
 
 	clientFolder, err := b.controlClient.CreateFolder(ctx, req)

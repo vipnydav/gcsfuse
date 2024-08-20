@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All Rights Reserved.
+// Copyright 2015 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,7 +44,8 @@ func NewExplicitDirInode(
 	bucket *gcsx.SyncerBucket,
 	mtimeClock timeutil.Clock,
 	cacheClock timeutil.Clock,
-	typeCacheMaxSizeMB int) (d ExplicitDirInode) {
+	typeCacheMaxSizeMB int,
+	enableHNS bool) (d ExplicitDirInode) {
 	wrapped := NewDirInode(
 		id,
 		name,
@@ -57,16 +58,20 @@ func NewExplicitDirInode(
 		mtimeClock,
 		cacheClock,
 		typeCacheMaxSizeMB,
-		false)
+		enableHNS)
 
-	d = &explicitDirInode{
+	dirInode := &explicitDirInode{
 		dirInode: wrapped.(*dirInode),
-		generation: Generation{
-			Object:   m.Generation,
-			Metadata: m.MetaGeneration,
-		},
 	}
 
+	if m != nil {
+		dirInode.generation = Generation{
+			Object:   m.Generation,
+			Metadata: m.MetaGeneration,
+		}
+	}
+
+	d = dirInode
 	return
 }
 

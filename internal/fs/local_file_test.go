@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All Rights Reserved.
+// Copyright 2015 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/googlecloudplatform/gcsfuse/v2/internal/config"
+	"github.com/googlecloudplatform/gcsfuse/v2/cfg"
 	"github.com/googlecloudplatform/gcsfuse/v2/internal/fs/inode"
 	"github.com/googlecloudplatform/gcsfuse/v2/internal/storage/gcs"
 	"github.com/googlecloudplatform/gcsfuse/v2/internal/storage/storageutil"
@@ -60,8 +60,8 @@ func init() {
 
 func (t *LocalFileTest) SetUpTestSuite() {
 	t.serverCfg.ImplicitDirectories = true
-	t.serverCfg.MountConfig = &config.MountConfig{
-		WriteConfig: config.WriteConfig{
+	t.serverCfg.NewConfig = &cfg.Config{
+		Write: cfg.WriteConfig{
 			CreateEmptyFile: false,
 		}}
 	t.fsTest.SetUpTestSuite()
@@ -830,4 +830,30 @@ func (t *LocalFileTest) AtimeMtimeAndCtime() {
 	ExpectThat(mtime, timeutil.TimeNear(createTime, Delta))
 	ExpectThat(atime, timeutil.TimeNear(createTime, Delta))
 	ExpectThat(ctime, timeutil.TimeNear(createTime, Delta))
+}
+
+// Create local file inside - test.txt
+// Stat that local file.
+// Remove the local file.
+// Create local file with the same name - test.txt
+// Stat that local file.
+func (t *LocalFileTest) TestStatLocalFileAfterRecreatingItWithSameName() {
+	filePath := path.Join(mntDir, "test.txt")
+	AssertEq(nil, err)
+	f1, err := os.Create(filePath)
+	defer AssertEq(nil, f1.Close())
+	AssertEq(nil, err)
+	_, err = os.Stat(filePath)
+	AssertEq(nil, err)
+	err = os.Remove(filePath)
+	AssertEq(nil, err)
+	f2, err := os.Create(filePath)
+	AssertEq(nil, err)
+	defer AssertEq(nil, f2.Close())
+
+	f, err := os.Stat(filePath)
+
+	AssertEq(nil, err)
+	ExpectEq("test.txt", f.Name())
+	ExpectFalse(f.IsDir())
 }

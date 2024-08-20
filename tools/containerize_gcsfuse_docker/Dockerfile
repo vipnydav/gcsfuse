@@ -1,4 +1,4 @@
-# Copyright 2020 Google Inc. All Rights Reserved.
+# Copyright 2020 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ ARG OS_VERSION
 ARG OS_NAME
 
 # Image with gcsfuse installed and its package (.deb)
-FROM golang:1.22.4 as gcsfuse-package
+FROM golang:1.23.0 as gcsfuse-package
 
 RUN apt-get update -qq && apt-get install -y ruby ruby-dev rubygems build-essential rpm fuse && gem install --no-document bundler
 

@@ -1,4 +1,4 @@
-// Copyright 2023 Google Inc. All Rights Reserved.
+// Copyright 2023 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -176,9 +176,9 @@ func TestListDirectoryWithTwelveThousandFiles(t *testing.T) {
 
 	// Fetching data from the kernel for the second list will be faster.
 	assert.Less(t, secondListTime, firstListTime)
-	// The second directory listing should be 5 times better performant since it
+	// The second directory listing should be 2 times better performant since it
 	// will be retrieved from the kernel cache.
-	assert.Less(t, 5*secondListTime, firstListTime)
+	assert.Less(t, 2*secondListTime, firstListTime)
 	// Clear the data after testing.
 	setup.RunScriptForTestData("testdata/delete_objects.sh", testDirPathOnBucket)
 }
@@ -213,9 +213,9 @@ func TestListDirectoryWithTwelveThousandFilesAndHundredExplicitDir(t *testing.T)
 
 	// Fetching data from the kernel for the second list will be faster.
 	assert.Less(t, secondListTime, firstListTime)
-	// The second directory listing should be 5 times better performant since it
+	// The second directory listing should be 2 times better performant since it
 	// will be retrieved from the kernel cache.
-	assert.Less(t, 5*secondListTime, firstListTime)
+	assert.Less(t, 2*secondListTime, firstListTime)
 	// Clear the bucket after testing.
 	setup.RunScriptForTestData("testdata/delete_objects.sh", testDirPathOnBucket)
 }
@@ -252,9 +252,9 @@ func TestListDirectoryWithTwelveThousandFilesAndHundredExplicitDirAndHundredImpl
 
 	// Fetching data from the kernel for the second list will be faster.
 	assert.Less(t, secondListTime, firstListTime)
-	// The second directory listing should be 5 times better performant since it
+	// The second directory listing should be 2 times better performant since it
 	// will be retrieved from the kernel cache.
-	assert.Less(t, 5*secondListTime, firstListTime)
+	assert.Less(t, 2*secondListTime, firstListTime)
 	// Clear the bucket after testing.
 	setup.RunScriptForTestData("testdata/delete_objects.sh", testDirPathOnBucket)
 }

@@ -1,4 +1,4 @@
-// Copyright 2021 Google Inc. All Rights Reserved.
+// Copyright 2021 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/googlecloudplatform/gcsfuse/v2/cfg"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -47,6 +48,7 @@ func validateDefaultConfig(t *testing.T, mountConfig *MountConfig) {
 	assert.GreaterOrEqual(t, mountConfig.FileCacheConfig.MaxParallelDownloads, 16)
 	assert.Equal(t, 50, mountConfig.FileCacheConfig.DownloadChunkSizeMB)
 	assert.False(t, mountConfig.FileCacheConfig.EnableCRC)
+	assert.Equal(t, int64(4*1024*1024), mountConfig.FileCacheConfig.WriteBufferSize)
 	assert.Equal(t, 1, mountConfig.GCSConnection.GRPCConnPoolSize)
 	assert.False(t, mountConfig.GCSAuth.AnonymousAccess)
 	assert.False(t, bool(mountConfig.EnableHNS))
@@ -82,19 +84,6 @@ func (t *YamlParserTest) TestReadConfigFile_InvalidConfig() {
 	assert.ErrorContains(t.T(), err, "error parsing config file: yaml: unmarshal errors:")
 }
 
-func (t *YamlParserTest) TestReadConfigFile_ValidConfigWith0BackupFileCount() {
-	mountConfig, err := ParseConfigFile("testdata/valid_config_with_0_backup-file-count.yaml")
-
-	assert.NoError(t.T(), err)
-	assert.NotNil(t.T(), mountConfig)
-	assert.True(t.T(), mountConfig.WriteConfig.CreateEmptyFile)
-	assert.Equal(t.T(), ERROR, mountConfig.LogConfig.Severity)
-	assert.Equal(t.T(), "/tmp/logfile.json", mountConfig.LogConfig.FilePath)
-	assert.Equal(t.T(), "text", mountConfig.LogConfig.Format)
-	assert.Equal(t.T(), 0, mountConfig.LogConfig.LogRotateConfig.BackupFileCount)
-	assert.False(t.T(), mountConfig.LogConfig.LogRotateConfig.Compress)
-}
-
 func (t *YamlParserTest) TestReadConfigFile_Invalid_UnexpectedField_Config() {
 	_, err := ParseConfigFile("testdata/invalid_unexpectedfield_config.yaml")
 
@@ -108,7 +97,7 @@ func (t *YamlParserTest) TestReadConfigFile_ValidConfig() {
 	assert.NoError(t.T(), err)
 	assert.NotNil(t.T(), mountConfig)
 	assert.True(t.T(), mountConfig.WriteConfig.CreateEmptyFile)
-	assert.Equal(t.T(), ERROR, mountConfig.LogConfig.Severity)
+	assert.Equal(t.T(), cfg.ERROR, mountConfig.LogConfig.Severity)
 	assert.Equal(t.T(), "/tmp/logfile.json", mountConfig.LogConfig.FilePath)
 	assert.Equal(t.T(), "text", mountConfig.LogConfig.Format)
 
@@ -143,6 +132,7 @@ func (t *YamlParserTest) TestReadConfigFile_ValidConfig() {
 	assert.Equal(t.T(), -1, mountConfig.MaxParallelDownloads)
 	assert.Equal(t.T(), 100, mountConfig.DownloadChunkSizeMB)
 	assert.False(t.T(), mountConfig.FileCacheConfig.EnableCRC)
+	assert.Equal(t.T(), int64(8192), mountConfig.FileCacheConfig.WriteBufferSize)
 
 	// gcs-retries
 	assert.Equal(t.T(), int64(6), mountConfig.GCSRetries.MaxRetryAttempts)
@@ -155,48 +145,6 @@ func (t *YamlParserTest) TestReadConfigFile_InvalidLogConfig() {
 	_, err := ParseConfigFile("testdata/invalid_log_config.yaml")
 
 	assert.ErrorContains(t.T(), err, fmt.Sprintf(parseConfigFileErrMsgFormat, "log severity should be one of [trace, debug, info, warning, error, off]"))
-}
-
-func (t *YamlParserTest) TestReadConfigFile_InvalidLogRotateConfig1() {
-	_, err := ParseConfigFile("testdata/invalid_log_rotate_config_1.yaml")
-
-	assert.ErrorContains(t.T(), err, fmt.Sprintf(parseConfigFileErrMsgFormat, "max-file-size-mb should be atleast 1"))
-}
-
-func (t *YamlParserTest) TestReadConfigFile_InvalidLogRotateConfig2() {
-	_, err := ParseConfigFile("testdata/invalid_log_rotate_config_2.yaml")
-
-	assert.ErrorContains(t.T(), err, fmt.Sprintf(parseConfigFileErrMsgFormat, "backup-file-count should be 0 (to retain all backup files) or a positive value"))
-}
-
-func (t *YamlParserTest) TestReadConfigFile_InvalidFileCacheMaxSizeConfig() {
-	_, err := ParseConfigFile("testdata/file_cache_config/invalid_max_size_mb.yaml")
-
-	assert.ErrorContains(t.T(), err, FileCacheMaxSizeMBInvalidValueError)
-}
-
-func (t *YamlParserTest) TestReadConfigFile_InvalidMaxParallelDownloadsConfig() {
-	_, err := ParseConfigFile("testdata/file_cache_config/invalid_max_parallel_downloads.yaml")
-
-	assert.ErrorContains(t.T(), err, MaxParallelDownloadsInvalidValueError)
-}
-
-func (t *YamlParserTest) TestReadConfigFile_InvalidZeroMaxParallelDownloadsConfig() {
-	_, err := ParseConfigFile("testdata/file_cache_config/invalid_zero_max_parallel_downloads.yaml")
-
-	assert.ErrorContains(t.T(), err, "the value of max-parallel-downloads for file-cache must not be 0 when enable-parallel-downloads is true")
-}
-
-func (t *YamlParserTest) TestReadConfigFile_InvalidParallelDownloadsPerFileConfig() {
-	_, err := ParseConfigFile("testdata/file_cache_config/invalid_parallel_downloads_per_file.yaml")
-
-	assert.ErrorContains(t.T(), err, ParallelDownloadsPerFileInvalidValueError)
-}
-
-func (t *YamlParserTest) TestReadConfigFile_InvalidDownloadChunkSizeMBConfig() {
-	_, err := ParseConfigFile("testdata/file_cache_config/invalid_download_chunk_size_mb.yaml")
-
-	assert.ErrorContains(t.T(), err, DownloadChunkSizeMBInvalidValueError)
 }
 
 func (t *YamlParserTest) TestReadConfigFile_MetatadaCacheConfig_InvalidTTL() {
@@ -307,18 +255,6 @@ func (t *YamlParserTest) TestReadConfigFile_FileSystemConfig_UnsetDisableParalle
 	assert.NoError(t.T(), err)
 	assert.NotNil(t.T(), mountConfig)
 	assert.False(t.T(), mountConfig.FileSystemConfig.DisableParallelDirops)
-}
-
-func (t *YamlParserTest) TestReadConfigFile_FileSystemConfig_InvalidKernelListCacheTtl() {
-	_, err := ParseConfigFile("testdata/file_system_config/invalid_kernel_list_cache_ttl.yaml")
-
-	assert.ErrorContains(t.T(), err, fmt.Sprintf("invalid kernelListCacheTtlSecs: %s", TtlInSecsInvalidValueError))
-}
-
-func (t *YamlParserTest) TestReadConfigFile_FileSystemConfig_UnsupportedLargeKernelListCacheTtl() {
-	_, err := ParseConfigFile("testdata/file_system_config/unsupported_large_kernel_list_cache_ttl.yaml")
-
-	assert.ErrorContains(t.T(), err, fmt.Sprintf("invalid kernelListCacheTtlSecs: %s", TtlInSecsTooHighError))
 }
 
 func (t *YamlParserTest) TestReadConfigFile_FileSystemConfig_UnsetKernelListCacheTtl() {

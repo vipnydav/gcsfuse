@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2023 Google Inc. All Rights Reserved.
+# Copyright 2023 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -64,7 +64,7 @@ sed -i 's/define \+FIO_IO_U_PLAT_GROUP_NR \+\([0-9]\+\)/define FIO_IO_U_PLAT_GRO
 cd -
 
 # Install and validate go.
-version=1.22.4
+version=1.23.0
 wget -O go_tar.tar.gz https://go.dev/dl/go${version}.linux-amd64.tar.gz -q
 sudo rm -rf /usr/local/go
 tar -xzf go_tar.tar.gz && sudo mv go /usr/local

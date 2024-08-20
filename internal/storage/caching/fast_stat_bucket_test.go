@@ -1,4 +1,4 @@
-// Copyright 2023 Google Inc. All Rights Reserved.
+// Copyright 2023 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -555,10 +555,30 @@ func (t *ListObjectsTest) EmptyListing() {
 	// Wrapped
 	expected := &gcs.Listing{}
 
+	ExpectCall(t.wrapped, "BucketType")().
+		WillOnce(Return(gcs.NonHierarchical))
+
 	ExpectCall(t.wrapped, "ListObjects")(Any(), Any()).
 		WillOnce(Return(expected, nil))
 
 	// Call
+	listing, err := t.bucket.ListObjects(context.TODO(), &gcs.ListObjectsRequest{})
+
+	AssertEq(nil, err)
+	ExpectEq(expected, listing)
+}
+
+func (t *ListObjectsTest) EmptyListingForHNS() {
+	// wrapped
+	expected := &gcs.Listing{}
+
+	ExpectCall(t.wrapped, "BucketType")().
+		WillOnce(Return(gcs.Hierarchical))
+
+	ExpectCall(t.wrapped, "ListObjects")(Any(), Any()).
+		WillOnce(Return(expected, nil))
+
+	// call
 	listing, err := t.bucket.ListObjects(context.TODO(), &gcs.ListObjectsRequest{})
 
 	AssertEq(nil, err)
@@ -574,6 +594,9 @@ func (t *ListObjectsTest) NonEmptyListing() {
 		Objects: []*gcs.Object{o0, o1},
 	}
 
+	ExpectCall(t.wrapped, "BucketType")().
+		WillOnce(Return(gcs.NonHierarchical))
+
 	ExpectCall(t.wrapped, "ListObjects")(Any(), Any()).
 		WillOnce(Return(expected, nil))
 
@@ -581,6 +604,34 @@ func (t *ListObjectsTest) NonEmptyListing() {
 	ExpectCall(t.cache, "Insert")(Any(), timeutil.TimeEq(t.clock.Now().Add(ttl))).Times(2)
 
 	// Call
+	listing, err := t.bucket.ListObjects(context.TODO(), &gcs.ListObjectsRequest{})
+
+	AssertEq(nil, err)
+	ExpectEq(expected, listing)
+}
+
+func (t *ListObjectsTest) NonEmptyListingForHNS() {
+	// wrapped
+	o0 := &gcs.Object{Name: "taco"}
+	o1 := &gcs.Object{Name: "burrito"}
+
+	expected := &gcs.Listing{
+		Objects:       []*gcs.Object{o0, o1},
+		CollapsedRuns: []string{"p0", "p1/"},
+	}
+
+	ExpectCall(t.wrapped, "BucketType")().
+		WillOnce(Return(gcs.Hierarchical))
+
+	ExpectCall(t.wrapped, "ListObjects")(Any(), Any()).
+		WillOnce(Return(expected, nil))
+
+	// insert
+	ExpectCall(t.cache, "Insert")(Any(), timeutil.TimeEq(t.clock.Now().Add(ttl))).Times(2)
+
+	ExpectCall(t.cache, "InsertFolder")(Any(), timeutil.TimeEq(t.clock.Now().Add(ttl))).Times(1)
+
+	// call
 	listing, err := t.bucket.ListObjects(context.TODO(), &gcs.ListObjectsRequest{})
 
 	AssertEq(nil, err)
@@ -761,6 +812,8 @@ func (t *StatObjectTest) TestShouldCallGetFolderWhenEntryIsNotPresent() {
 
 	ExpectCall(t.cache, "LookUpFolder")(name, Any()).
 		WillOnce(Return(false, nil))
+	ExpectCall(t.cache, "InsertFolder")(folder, Any()).
+		WillOnce(Return())
 	ExpectCall(t.wrapped, "GetFolder")(Any(), name).
 		WillOnce(Return(folder, nil))
 
@@ -768,6 +821,21 @@ func (t *StatObjectTest) TestShouldCallGetFolderWhenEntryIsNotPresent() {
 
 	AssertEq(nil, err)
 	ExpectThat(result, Pointee(DeepEquals(*folder)))
+}
+
+func (t *StatObjectTest) TestShouldReturnNilWhenErrorIsReturnedFromGetFolder() {
+	const name = "some-name"
+	error := errors.New("connection error")
+
+	ExpectCall(t.cache, "LookUpFolder")(name, Any()).
+		WillOnce(Return(false, nil))
+	ExpectCall(t.wrapped, "GetFolder")(Any(), name).
+		WillOnce(Return(nil, error))
+
+	folder, result := t.bucket.GetFolder(context.TODO(), name)
+
+	AssertEq(nil, folder)
+	AssertEq(error, result)
 }
 
 func (t *StatObjectTest) TestRenameFolder() {

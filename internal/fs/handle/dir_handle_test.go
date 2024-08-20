@@ -1,4 +1,4 @@
-// Copyright 2020 Google Inc. All Rights Reserved.
+// Copyright 2020 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@ package handle
 
 import (
 	"context"
-	"strings"
 	"testing"
 	"time"
 
@@ -24,6 +23,7 @@ import (
 	"github.com/googlecloudplatform/gcsfuse/v2/internal/fs/inode"
 	"github.com/googlecloudplatform/gcsfuse/v2/internal/gcsx"
 	"github.com/googlecloudplatform/gcsfuse/v2/internal/storage/fake"
+	"github.com/googlecloudplatform/gcsfuse/v2/internal/storage/gcs"
 	"github.com/googlecloudplatform/gcsfuse/v2/internal/storage/storageutil"
 	"github.com/jacobsa/fuse/fuseops"
 	"github.com/jacobsa/fuse/fuseutil"
@@ -53,7 +53,7 @@ func init() { RegisterTestSuite(&DirHandleTest{}) }
 func (t *DirHandleTest) SetUp(ti *TestInfo) {
 	t.ctx = ti.Ctx
 	t.bucket = gcsx.NewSyncerBucket(
-		1, ".gcsfuse_tmp/", fake.NewFakeBucket(&t.clock, "some_bucket"))
+		1, ".gcsfuse_tmp/", fake.NewFakeBucket(&t.clock, "some_bucket", gcs.NonHierarchical))
 	t.clock.SetTime(time.Date(2022, 8, 15, 22, 56, 0, 0, time.Local))
 	t.resetDirHandle()
 }
@@ -126,9 +126,9 @@ func (t *DirHandleTest) EnsureEntriesWithLocalAndGCSFiles() {
 	localFileName1 := "localFile1"
 	localFileName2 := "localFile2"
 	// Setup localFileEntries.
-	localFileEntries := []fuseutil.Dirent{
-		{Offset: 0, Inode: 10, Name: localFileName1, Type: fuseutil.DT_File},
-		{Offset: 0, Inode: 20, Name: localFileName2, Type: fuseutil.DT_File},
+	localFileEntries := map[string]fuseutil.Dirent{
+		localFileName1: {Offset: 0, Inode: 10, Name: localFileName1, Type: fuseutil.DT_File},
+		localFileName2: {Offset: 0, Inode: 20, Name: localFileName2, Type: fuseutil.DT_File},
 	}
 
 	// Ensure entries.
@@ -152,7 +152,7 @@ func (t *DirHandleTest) EnsureEntriesWithOnlyGCSFiles() {
 	_, err = storageutil.CreateObject(t.ctx, t.bucket, "testDir/gcsObject2", nil)
 	AssertEq(nil, err)
 	// Setup empty localFileEntries.
-	var localFileEntries []fuseutil.Dirent
+	var localFileEntries map[string]fuseutil.Dirent
 
 	// Ensure entries.
 	err = t.dh.ensureEntries(t.ctx, localFileEntries)
@@ -169,9 +169,9 @@ func (t *DirHandleTest) EnsureEntriesWithOnlyLocalFiles() {
 	localFileName1 := "localFile1"
 	localFileName2 := "localFile2"
 	// Setup localFileEntries.
-	localFileEntries := []fuseutil.Dirent{
-		{Offset: 0, Inode: 10, Name: localFileName1, Type: fuseutil.DT_File},
-		{Offset: 0, Inode: 20, Name: localFileName2, Type: fuseutil.DT_File},
+	localFileEntries := map[string]fuseutil.Dirent{
+		localFileName1: {Offset: 0, Inode: 10, Name: localFileName1, Type: fuseutil.DT_File},
+		localFileName2: {Offset: 0, Inode: 20, Name: localFileName2, Type: fuseutil.DT_File},
 	}
 
 	// Ensure entries.
@@ -192,16 +192,17 @@ func (t *DirHandleTest) EnsureEntriesWithSameNameLocalAndGCSFile() {
 	AssertEq(nil, err)
 	localFileName := "file1"
 	// Setup localFileEntries.
-	localFileEntries := []fuseutil.Dirent{
-		{Offset: 0, Inode: 10, Name: localFileName, Type: fuseutil.DT_File},
+	localFileEntries := map[string]fuseutil.Dirent{
+		localFileName: {Offset: 0, Inode: 10, Name: localFileName, Type: fuseutil.DT_File},
 	}
 
 	// Ensure entries.
 	err = t.dh.ensureEntries(t.ctx, localFileEntries)
 
 	// Validations
-	AssertNe(nil, err)
-	AssertTrue(strings.Contains(err.Error(), "readAllEntries: fixConflictingNames: "))
+	AssertEq(nil, err)
+	AssertEq(1, len(t.dh.entries))
+	t.validateEntry(t.dh.entries[0], localFileName, fuseutil.DT_File)
 }
 
 func (t *DirHandleTest) EnsureEntriesWithSameNameLocalFileAndGCSDirectory() {
@@ -212,8 +213,8 @@ func (t *DirHandleTest) EnsureEntriesWithSameNameLocalFileAndGCSDirectory() {
 	AssertEq(nil, err)
 	localFileName := "file1"
 	// Setup localFileEntries.
-	localFileEntries := []fuseutil.Dirent{
-		{Offset: 0, Inode: 10, Name: localFileName, Type: fuseutil.DT_File},
+	localFileEntries := map[string]fuseutil.Dirent{
+		localFileName: {Offset: 0, Inode: 10, Name: localFileName, Type: fuseutil.DT_File},
 	}
 
 	// Ensure entries.
@@ -224,4 +225,51 @@ func (t *DirHandleTest) EnsureEntriesWithSameNameLocalFileAndGCSDirectory() {
 	AssertEq(2, len(t.dh.entries))
 	t.validateEntry(t.dh.entries[0], localFileName, fuseutil.DT_Directory)
 	t.validateEntry(t.dh.entries[1], localFileName+inode.ConflictingFileNameSuffix, fuseutil.DT_File)
+}
+
+func (t *DirHandleTest) EnsureEntriesWithNoFiles() {
+	// Setup localFileEntries.
+	localFileEntries := map[string]fuseutil.Dirent{}
+
+	// Ensure entries.
+	err := t.dh.ensureEntries(t.ctx, localFileEntries)
+
+	// Validations
+	AssertEq(nil, err)
+	AssertEq(0, len(t.dh.entries))
+}
+
+func (t *DirHandleTest) EnsureEntriesWithOneGCSFile() {
+	var err error
+	// Set up empty GCS objects.
+	// DirHandle holds a DirInode pointing to "testDir".
+	_, err = storageutil.CreateObject(t.ctx, t.bucket, "testDir/gcsObject1", nil)
+	AssertEq(nil, err)
+	// Setup empty localFileEntries.
+	var localFileEntries map[string]fuseutil.Dirent
+
+	// Ensure entries.
+	err = t.dh.ensureEntries(t.ctx, localFileEntries)
+
+	// Validations
+	AssertEq(nil, err)
+	AssertEq(1, len(t.dh.entries))
+	t.validateEntry(t.dh.entries[0], "gcsObject1", fuseutil.DT_File)
+}
+
+func (t *DirHandleTest) EnsureEntriesWithOneLocalFile() {
+	var err error
+	localFileName1 := "localFile1"
+	// Setup localFileEntries.
+	localFileEntries := map[string]fuseutil.Dirent{
+		localFileName1: {Offset: 0, Inode: 10, Name: localFileName1, Type: fuseutil.DT_File},
+	}
+
+	// Ensure entries.
+	err = t.dh.ensureEntries(t.ctx, localFileEntries)
+
+	// Validations
+	AssertEq(nil, err)
+	AssertEq(1, len(t.dh.entries))
+	t.validateEntry(t.dh.entries[0], localFileName1, fuseutil.DT_File)
 }

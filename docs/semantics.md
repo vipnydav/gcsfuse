@@ -57,7 +57,7 @@ Examples:
 
 # Caching
 
-Cloud Storage FUSE has three forms of optional caching: stat, type, and file. Stat and type caches are enabled by default. Using Cloud Storage FUSE with file caching, stat caching, or type caching enabled can significantly increase performance but reduces consistency guarantees.
+Cloud Storage FUSE has four forms of optional caching: stat, type, list, and file. Stat and type caches are enabled by default. Using Cloud Storage FUSE with file caching, list caching, stat caching, or type caching enabled can significantly increase performance but reduces consistency guarantees.
 The different forms of caching are discussed in this section, along with their trade-offs and the situations in which they are and are not safe to use.
 
 The default behavior is appropriate, and brings significant performance benefits, when the bucket is never modified or is modified only via a single Cloud Storage FUSE mount. If you are using Cloud Storage FUSE in a situation where multiple actors will be modifying a bucket, be sure to read the rest of this section carefully and consider disabling caching.
@@ -148,7 +148,7 @@ The behavior of file cache is controlled by the following config-file parameters
    - Use a value of 0 to ensure that the most up to date file is read. Using a value of 0 issues a Get metadata call to make sure that the object generation for the file in the cache matches what's stored in Cloud Storage. 
 
 Additional file cache [behavior](https://cloud.google.com/storage/docs/gcsfuse-cache):
-1. **Persistence**: Cloud Storage FUSE caches aren't persisted on unmounts and restart when all metadata entries are evicted. However, data in the file cache isn't evicted and should be deleted by the user, or can be reused in subsequent mount operations once the metadata has been populated again.
+1. **Persistence**: Cloud Storage FUSE caches aren't persisted on unmounts and restarts. For file caching, while the metadata entries needed to serve files from the cache are evicted on unmounts and restarts, data in the file cache may still be present in the file directory. You should delete data in the file cache directory after unmounts or restarts.
 
 2. **Security**: When you enable caching, Cloud Storage FUSE uses the specified 'cache-dir' you set as the underlying directory for the cache to persist files from your Cloud Storage bucket in an unencrypted format. Any user or process that has access to this cache directory can access these files. We recommend that you restrict access to this directory.
 
@@ -163,7 +163,27 @@ Additional file cache [behavior](https://cloud.google.com/storage/docs/gcsfuse-c
 
    - If a Cloud Storage FUSE client modifies a cached file or its metadata, then the file is immediately invalidated and consistency is ensured in the following read by the same client. However, if different clients access the same file or its metadata, and its entries are cached, then the cached version of the file or metadata is read and not the updated version until the file is invalidated by that specific client's TTL setting.     
 
-**Note**: 
+**Kernel List Cache**
+
+As the name suggests, the Cloud Storage FUSE kernel-list-cache is used to cache the directory listing (output of `ls`) in kernel page-cache. It significantly improves the workload which involves repeated listing. For multi node/mount-point scenario, this is recommended to be used only for read only workloads, e.g. for Serving and Training workloads.
+
+By default, the list cache is disabled. It can be enabled by configuring the `--kernel-list-cache-ttl-secs` cli flag or `file-system:kernel-list-cache-ttl-secs` config flag where:
+*   A value of 0 means disabled. This is the default value.
+*   A positive value represents the ttl (in seconds) to keep the directory list response in the kernel page-cache.
+*   -1 to bypass entry expiration and always return the list response from the cache if available.
+
+**Important Points**
+*   The kernel-list-cache is kept within the kernel's page-cache. Consequently, this functionality depends upon the availability of page-cache memory on the system. This contrasts with the stat and type caches, which are retained in user memory as part of Cloud Storage Fuse daemon.
+*   The kernel's list cache is maintained on a per-directory level, resulting in either all list entries being retained in the page cache or none at all.
+*   The creation, renaming, or deletion of new files or folders causes the eviction of the page-cache of their immediate parent directory, but not of all ancestral directories.
+
+**Consistency**
+*   Kernel List cache ensures consistency within the mount. That means, creation, deletion or rename of files/folder within a directory evicts the kernel list cache of the directory.
+*   Externally added objects are only visible after the kernel-list-cache-ttl-secs ttl expires, even if they are touched (stat) via the same mount point. Since stat doesn’t evict the kernel-list-cache so there might be some list-stat inconsistency.
+*   Kernel-list-cache-ttl doesn't work with empty directories. In case a new file is added to the empty directory remotely outside of the mount, the client will not be able to access the new file even if ttl is expired.
+*   One of the known consistency issue: `rm -R` encounters consistency issues when objects are created externally in a bucket. Specifically, if a client (e.g., `Cloud Storage Fuse` client1) caches a directory listing and another client (client2) adds a new file to the directory before the cached listing expires, `rm -R` on the directory will fail with a "Directory not empty" error. This occurs because `rm -R` initially deletes the directory's children based on the cached listing and then checks the directory's emptiness by making a List call, which returns not empty due to the externally added file.
+
+**Note**:
 
 1. ```--stat-cache-ttl``` and ```--type-cache-ttl``` have been deprecated (starting v2.0) and only ```metadata-cache: ttl-secs``` in the gcsfuse config-file will be supported. So, it is recommended to switch from these two to ```metadata-cache: ttl-secs```.
 For now, for backward compatibility, both are accepted, and the minimum of the two, rounded to the next higher multiple of a second, is used as TTL for both stat-cache and type-cache, when ```metadata-cache: ttl-secs``` is not set.
@@ -330,9 +350,9 @@ This can be overridden by setting ```-o allow_other``` to allow other users to a
 
 See [Key Differences from a POSIX filesystem](https://cloud.google.com/storage/docs/gcs-fuse#expandable-1)
 
-**Unlinking directories**
+## Unlinking directories
 
-Because Cloud Storage offers no way to delete an object conditional on the non-existence of other objects, there is no way for Cloud Storage FUSE to unlink a directory if and only if it is empty. So Cloud Storage FUSE first do a list call to Cloud Storage to check if the directory is empty or not. And then deletes the directory object only if the list call response is empty.  
+Because Cloud Storage offers no way to delete an object conditional on the non-existence of other objects, there is no way for Cloud Storage FUSE to unlink a directory if and only if it is empty. So Cloud Storage FUSE first performs a list call to Cloud Storage to check if the directory is empty or not. And then deletes the directory object only if the list call response is empty.  
 
 Since, the complete unlink directory operation is not atomic, this may lead to inconsistency. E.g. as soon as Cloud Storage fuse gets the response of list call as `empty`, meanwhile some other machines may create a file in the same directory. As a result, the content of a non-empty directory that is unlinked are not deleted but simply become inaccessible (Unless --implicit-dirs is set; see the section on implicit directories above.)
 
@@ -342,7 +362,7 @@ Cloud Storage FUSE implements requests from the kernel to read the contents of a
 
 However, with this implementation there is no way for Cloud Storage FUSE to distinguish a child directory that actually exists (because its placeholder object is present) and one that is only implicitly defined. So when ```--implicit-dirs``` is not set, directory listings may contain names that are inaccessible in a later call from the kernel to Cloud Storage FUSE to look up the inode by name. For example, a call to ```readdir(3) ```may return names for which ```fstat(2)``` returns ```ENOENT```.
 
-**Name conflicts**
+## Name conflicts
 
 It is possible to have a Cloud Storage bucket containing an object named foo and another object named ```foo/```:
 - This situation can easily happen when writing to Cloud Storage directly, since there is nothing special about those names as far as Cloud Storage is concerned.
@@ -352,7 +372,17 @@ Traditional file systems do not allow multiple directory entries with the same n
 
 Instead, when a conflicting pair of foo and ```foo/``` objects both exist, it appears in the Cloud Storage FUSE file system as if there is a directory named foo and a file or symlink named ```foo\n``` (i.e. foo followed by U+000A, line feed). This is what will appear when the parent's directory entries are read, and Cloud Storage FUSE will respond to requests to look up the inode named ```foo\n``` by returning the file inode. ```\n``` in particular is chosen because it is not legal in Cloud Storage object names, and therefore is not ambiguous.
 
-**Memory-mapped files**
+### Unsupported object names
+
+Objects in GCS with double slashes '//' as a name or
+prefix are not supported in GCSfuse. Accessing a directory with such
+named files will cause an 'input/output error', as the Linux
+filesystem does not support files or directories named with a '/'.
+The most common example of this is an object called, for example
+'A//C.txt' where 'A' indicates a directory and 'C.txt' indicates a
+file, and is missing directory 'B/' between 'A/' and 'C.txt'.
+
+## Memory-mapped files
 
 Cloud Storage FUSE files can be memory-mapped for reading and writing using ```mmap(2)```. If you make modifications to such a file and want to ensure that they are durable, you must do the following:
 
@@ -364,12 +394,12 @@ Cloud Storage FUSE files can be memory-mapped for reading and writing using ```m
 
 See the notes on [fuseops.FlushFileOp](http://godoc.org/github.com/jacobsa/fuse/fuseops#FlushFileOp) for more details.
 
-**Error Handling**
+## Error Handling
 
 Transient errors can occur in distributed systems like Cloud Storage, such as network timeouts. Cloud Storage FUSE implements Cloud Storage [retry best practices](https://cloud.google.com/storage/docs/retry-strategy) with exponential backoff. 
 
 
-**Missing features**
+## Missing features
 
 Not all of the usual file system features are supported. Most prominently:
 - Renaming directories is by default not supported. A directory rename cannot be performed atomically in Cloud Storage and would therefore be arbitrarily expensive in terms of Cloud Storage operations, and for large directories would have high probability of failure, leaving the two directories in an inconsistent state.
@@ -377,3 +407,4 @@ Not all of the usual file system features are supported. Most prominently:
 - File and directory permissions and ownership cannot be changed. See the permissions section above.
 - Modification times are not tracked for any inodes except for files.
 - No other times besides modification time are tracked. For example, ctime and atime are not tracked (but will be set to something reasonable). Requests to change them will appear to succeed, but the results are unspecified.
+

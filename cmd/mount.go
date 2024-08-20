@@ -1,4 +1,4 @@
-// Copyright 2024 Google Inc. All Rights Reserved.
+// Copyright 2024 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -40,7 +40,6 @@ func mountWithStorageHandle(
 	bucketName string,
 	mountPoint string,
 	newConfig *cfg.Config,
-	flags *flagStorage,
 	mountConfig *config.MountConfig,
 	storageHandle storage.StorageHandle) (mfs *fuse.MountedFileSystem, err error) {
 	// Sanity check: make sure the temporary directory exists and is writable
@@ -122,9 +121,10 @@ be interacting with the file system.`)
 		FilePerms:                  os.FileMode(newConfig.FileSystem.FileMode),
 		DirPerms:                   os.FileMode(newConfig.FileSystem.DirMode),
 		RenameDirLimit:             newConfig.FileSystem.RenameDirLimit,
-		SequentialReadSizeMb:       flags.SequentialReadSizeMb,
+		SequentialReadSizeMb:       int32(newConfig.GcsConnection.SequentialReadSizeMb),
 		EnableNonexistentTypeCache: newConfig.MetadataCache.EnableNonexistentTypeCache,
 		MountConfig:                mountConfig,
+		NewConfig:                  newConfig,
 	}
 
 	logger.Infof("Creating a new server...\n")
@@ -142,11 +142,29 @@ be interacting with the file system.`)
 
 	// Mount the file system.
 	logger.Infof("Mounting file system %q...", fsName)
+
+	mountCfg := getFuseMountConfig(fsName, newConfig)
+	mfs, err = fuse.Mount(mountPoint, server, mountCfg)
+	if err != nil {
+		err = fmt.Errorf("Mount: %w", err)
+		return
+	}
+
+	return
+}
+
+func getFuseMountConfig(fsName string, newConfig *cfg.Config) *fuse.MountConfig {
+	// Handle the repeated "-o" flag.
+	parsedOptions := make(map[string]string)
+	for _, o := range newConfig.FileSystem.FuseOptions {
+		mount.ParseOptions(parsedOptions, o)
+	}
+
 	mountCfg := &fuse.MountConfig{
 		FSName:     fsName,
 		Subtype:    "gcsfuse",
 		VolumeName: "gcsfuse",
-		Options:    flags.MountOptions,
+		Options:    parsedOptions,
 		// Allows parallel LookUpInode & ReadDir calls from Kernel's FUSE driver.
 		// GCSFuse takes exclusive lock on directory inodes during ReadDir call,
 		// hence there is no effect of parallelization of incoming ReadDir calls
@@ -155,17 +173,10 @@ be interacting with the file system.`)
 		// users experience the performance gains. E.g. if a user workload tries to
 		// access two files under same directory parallely, then the lookups also
 		// happen parallely.
-		EnableParallelDirOps: !(mountConfig.FileSystemConfig.DisableParallelDirops),
+		EnableParallelDirOps: !(newConfig.FileSystem.DisableParallelDirops),
 	}
 
 	mountCfg.ErrorLogger = logger.NewLegacyLogger(logger.LevelError, "fuse: ")
 	mountCfg.DebugLogger = logger.NewLegacyLogger(logger.LevelTrace, "fuse_debug: ")
-
-	mfs, err = fuse.Mount(mountPoint, server, mountCfg)
-	if err != nil {
-		err = fmt.Errorf("Mount: %w", err)
-		return
-	}
-
-	return
+	return mountCfg
 }

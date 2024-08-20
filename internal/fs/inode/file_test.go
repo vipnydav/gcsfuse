@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All Rights Reserved.
+// Copyright 2015 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -70,7 +70,7 @@ func (t *FileTest) SetUp(ti *TestInfo) {
 	syncutil.EnableInvariantChecking()
 	t.ctx = ti.Ctx
 	t.clock.SetTime(time.Date(2012, 8, 15, 22, 56, 0, 0, time.Local))
-	t.bucket = fake.NewFakeBucket(&t.clock, "some_bucket")
+	t.bucket = fake.NewFakeBucket(&t.clock, "some_bucket", gcs.NonHierarchical)
 
 	// Set up the backing object.
 	var err error

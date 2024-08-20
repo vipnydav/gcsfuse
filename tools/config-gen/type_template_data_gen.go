@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Google Inc. All Rights Reserved.
+ * Copyright 2024 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -64,8 +64,6 @@ func getGoDataType(dt string) string {
 	switch dt {
 	case "octal":
 		return "Octal"
-	case "url":
-		return "*url.URL"
 	case "logSeverity":
 		return "LogSeverity"
 	case "protocol":

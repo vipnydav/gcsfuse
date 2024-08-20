@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All Rights Reserved.
+// Copyright 2015 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -62,7 +62,7 @@ func convertToPosixArgs(args []string) []string {
 // which is used for flag and config file parsing.
 // Refer https://go.dev/blog/generate for details.
 //
-//go:generate go run -C tools/config-gen . --paramsFile=params.yaml --outFile=../../cfg/config.go --templateFile=config.tpl
+//go:generate go run -C tools/config-gen . --paramsFile=params.yaml --outDir=../../cfg --templateDir=templates
 func main() {
 	// Common configuration for all commands
 	defer logPanic()

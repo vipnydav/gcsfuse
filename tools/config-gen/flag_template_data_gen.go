@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Google Inc. All Rights Reserved.
+ * Copyright 2024 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -76,7 +76,7 @@ func computeFlagTemplateDataForParam(p Param) (flagTemplateData, error) {
 		}
 		defaultValue = fmt.Sprintf("%d * time.Nanosecond", dur.Nanoseconds())
 		fn = "DurationP"
-	case "octal", "url", "logSeverity", "protocol", "resolvedPath":
+	case "octal", "logSeverity", "protocol", "resolvedPath":
 		fallthrough
 	case "string":
 		defaultValue = fmt.Sprintf("%q", p.DefaultValue)

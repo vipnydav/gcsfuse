@@ -1,4 +1,4 @@
-// Copyright 2024 Google Inc. All Rights Reserved.
+// Copyright 2024 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,10 +14,30 @@
 
 package cfg
 
-// OverrideWithLoggingFlags is for backward compatibility with old flags.
-func OverrideWithLoggingFlags(mountConfig *Config, debugFuse bool,
-	debugGCS bool, debugMutex bool) {
-	if debugFuse || debugGCS || debugMutex {
-		mountConfig.Logging.Severity = "TRACE"
+import (
+	"fmt"
+	"runtime"
+	"time"
+)
+
+func DefaultMaxParallelDownloads() int {
+	return max(16, 2*runtime.NumCPU())
+}
+
+func IsFileCacheEnabled(mountConfig *Config) bool {
+	return mountConfig.FileCache.MaxSizeMb != 0 && string(mountConfig.CacheDir) != ""
+}
+
+// ListCacheTTLSecsToDuration converts TTL in seconds to time.Duration.
+func ListCacheTTLSecsToDuration(secs int64) time.Duration {
+	err := isTTLInSecsValid(secs)
+	if err != nil {
+		panic(fmt.Sprintf("invalid argument: %d, %v", secs, err))
 	}
+
+	if secs == -1 {
+		return maxSupportedTTL
+	}
+
+	return time.Duration(secs * int64(time.Second))
 }

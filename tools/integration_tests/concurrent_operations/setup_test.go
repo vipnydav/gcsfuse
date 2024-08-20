@@ -1,4 +1,4 @@
-// Copyright 2024 Google Inc. All Rights Reserved.
+// Copyright 2024 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -62,7 +62,7 @@ func TestMain(m *testing.M) {
 	setup.SetUpTestDirForTestBucketFlag()
 
 	flagsSet := [][]string{
-		{"--kernel-list-cache-ttl-secs=-1", "--kernel-list-cache-ttl-secs=0"},
+		{"--kernel-list-cache-ttl-secs=-1"}, {"--kernel-list-cache-ttl-secs=0"},
 	}
 	successCode := static_mounting.RunTests(flagsSet, m)
 

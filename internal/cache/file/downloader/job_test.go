@@ -1,4 +1,4 @@
-// Copyright 2023 Google Inc. All Rights Reserved.
+// Copyright 2023 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -937,7 +937,7 @@ func (dt *downloaderTest) Test_validateCRC_ForTamperedFileWhenEnableCRCIsFalse()
 	// Tamper the file
 	err = os.WriteFile(dt.fileSpec.Path, []byte("test"), 0644)
 	AssertEq(nil, err)
-	dt.job.fileCacheConfig.EnableCRC = false
+	dt.job.fileCacheConfig.EnableCrc = false
 
 	dt.job.cancelCtx, dt.job.cancelFunc = context.WithCancel(context.Background())
 	err = dt.job.validateCRC()
@@ -1017,4 +1017,28 @@ func (dt *downloaderTest) Test_When_Parallel_Download_Is_Disabled() {
 	result := dt.job.IsParallelDownloadsEnabled()
 
 	AssertFalse(result)
+}
+
+func (dt *downloaderTest) Test_createCacheFile_WhenNonParallelDownloads() {
+	//Arrange - initJobTest is being called in setup of downloader.go
+	dt.job.fileCacheConfig.EnableParallelDownloads = false
+
+	cacheFile, err := dt.job.createCacheFile()
+
+	AssertEq(nil, err)
+	defer func() {
+		_ = cacheFile.Close()
+	}()
+}
+
+func (dt *downloaderTest) Test_createCacheFile_WhenParallelDownloads() {
+	//Arrange - initJobTest is being called in setup of downloader.go
+	dt.job.fileCacheConfig.EnableParallelDownloads = true
+
+	cacheFile, err := dt.job.createCacheFile()
+
+	AssertEq(nil, err)
+	defer func() {
+		_ = cacheFile.Close()
+	}()
 }

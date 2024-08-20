@@ -1,4 +1,4 @@
-// Copyright 2023 Google Inc. All Rights Reserved.
+// Copyright 2023 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,17 +22,15 @@ import (
 )
 
 type Folder struct {
-	Name           string
-	MetaGeneration int64
-	UpdateTime     time.Time
+	Name       string
+	UpdateTime time.Time
 }
 
 func GCSFolder(bucketName string, attrs *controlpb.Folder) *Folder {
 	// Setting the parameters in Folder and doing conversions as necessary.
 	return &Folder{
-		Name:           getFolderName(bucketName, attrs.Name),
-		MetaGeneration: attrs.Metageneration,
-		UpdateTime:     attrs.GetUpdateTime().AsTime(),
+		Name:       getFolderName(bucketName, attrs.Name),
+		UpdateTime: attrs.GetUpdateTime().AsTime(),
 	}
 }
 
@@ -45,13 +43,4 @@ func getFolderName(bucketName string, fullPath string) string {
 	folderName := strings.TrimPrefix(fullPath, prefix)
 
 	return folderName
-}
-
-func (f *Folder) ConvertFolderToMinObject() *MinObject {
-
-	return &MinObject{
-		Name:           f.Name,
-		MetaGeneration: f.MetaGeneration,
-		Updated:        f.UpdateTime,
-	}
 }

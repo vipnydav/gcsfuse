@@ -1,4 +1,4 @@
-// Copyright 2023 Google Inc. All Rights Reserved.
+// Copyright 2023 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,8 +23,6 @@ import (
 	"github.com/googlecloudplatform/gcsfuse/v2/tools/integration_tests/util/mounting"
 	"github.com/googlecloudplatform/gcsfuse/v2/tools/integration_tests/util/setup"
 )
-
-const DirectoryInTestBucket = "Test"
 
 func MountGcsfuseWithOnlyDir(flags []string) (err error) {
 	defaultArg := []string{"--only-dir",
@@ -52,6 +50,9 @@ func mountGcsFuseForFlagsAndExecuteTests(flags [][]string, m *testing.M) (succes
 		}
 		log.Printf("Running only dir mounting tests with flags: %s", flags[i])
 		successCode = setup.ExecuteTestForFlagsSet(flags[i], m)
+		if successCode != 0 {
+			return
+		}
 	}
 	return
 }

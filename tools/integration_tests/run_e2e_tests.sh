@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2023 Google Inc. All Rights Reserved.
+# Copyright 2023 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -115,8 +115,8 @@ function upgrade_gcloud_version() {
 function install_packages() {
   # e.g. architecture=arm64 or amd64
   architecture=$(dpkg --print-architecture)
-  echo "Installing go-lang 1.22.4..."
-  wget -O go_tar.tar.gz https://go.dev/dl/go1.22.4.linux-${architecture}.tar.gz -q
+  echo "Installing go-lang 1.23.0..."
+  wget -O go_tar.tar.gz https://go.dev/dl/go1.23.0.linux-${architecture}.tar.gz -q
   sudo rm -rf /usr/local/go && tar -xzf go_tar.tar.gz && sudo mv go /usr/local
   export PATH=$PATH:/usr/local/go/bin
   # install python3-setuptools tools.
