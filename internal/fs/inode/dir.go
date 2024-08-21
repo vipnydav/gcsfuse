@@ -28,9 +28,9 @@ import (
 	"github.com/googlecloudplatform/gcsfuse/v2/internal/storage/storageutil"
 	"github.com/jacobsa/fuse/fuseops"
 	"github.com/jacobsa/fuse/fuseutil"
-	"github.com/jacobsa/syncutil"
 	"github.com/jacobsa/timeutil"
 	"golang.org/x/net/context"
+	"golang.org/x/sync/errgroup"
 )
 
 // ListObjects call supports fetching upto 5000 results when projection is noAcl
@@ -130,7 +130,8 @@ type DirInode interface {
 	DeleteChildDir(
 		ctx context.Context,
 		name string,
-		isImplicitDir bool) (err error)
+		isImplicitDir bool,
+		dirInode DirInode) (err error)
 
 	// LocalFileEntries lists the local files present in the directory.
 	// Local means that the file is not yet present on GCS.
@@ -156,6 +157,10 @@ type DirInode interface {
 
 	// RUnlock readonly unlock.
 	RUnlock()
+
+	IsUnlinked() bool
+
+	Unlink()
 }
 
 // An inode that represents a directory from a GCS bucket.
@@ -210,6 +215,10 @@ type dirInode struct {
 	// enabled.
 	prevDirListingTimeStamp time.Time
 	isHNSEnabled            bool
+
+	// Represents if folder has been unlinked in hierarchical bucket. This is not getting used in
+	// non-hierarchical bucket.
+	unlinked bool
 }
 
 var _ DirInode = &dirInode{}
@@ -264,6 +273,7 @@ func NewDirInode(
 		attrs:                       attrs,
 		cache:                       metadata.NewTypeCache(typeCacheMaxSizeMB, typeCacheTTL),
 		isHNSEnabled:                isHNSEnabled,
+		unlinked:                    false,
 	}
 
 	typed.lc.Init(id)
@@ -520,26 +530,26 @@ func (d *dirInode) LookUpChild(ctx context.Context, name string) (*Core, error) 
 		return d.lookUpConflicting(ctx, name)
 	}
 
+	group, ctx := errgroup.WithContext(ctx)
+
 	var fileResult *Core
 	var dirResult *Core
-	lookUpFile := func(ctx context.Context) (err error) {
+	lookUpFile := func() (err error) {
 		fileResult, err = findExplicitInode(ctx, d.Bucket(), NewFileName(d.Name(), name))
 		return
 	}
-	lookUpExplicitDir := func(ctx context.Context) (err error) {
+	lookUpExplicitDir := func() (err error) {
 		dirResult, err = findExplicitInode(ctx, d.Bucket(), NewDirName(d.Name(), name))
 		return
 	}
-	lookUpImplicitOrExplicitDir := func(ctx context.Context) (err error) {
+	lookUpImplicitOrExplicitDir := func() (err error) {
 		dirResult, err = findDirInode(ctx, d.Bucket(), NewDirName(d.Name(), name))
 		return
 	}
-	lookUpHNSDir := func(ctx context.Context) (err error) {
+	lookUpHNSDir := func() (err error) {
 		dirResult, err = findExplicitFolder(ctx, d.Bucket(), NewDirName(d.Name(), name))
 		return
 	}
-
-	b := syncutil.NewBundle(ctx)
 
 	cachedType := d.cache.Get(d.cacheClock.Now(), name)
 	switch cachedType {
@@ -551,29 +561,29 @@ func (d *dirInode) LookUpChild(ctx context.Context, name string) (*Core, error) 
 		}
 	case metadata.ExplicitDirType:
 		if d.isBucketHierarchical() {
-			b.Add(lookUpHNSDir)
+			group.Go(lookUpHNSDir)
 		} else {
-			b.Add(lookUpExplicitDir)
+			group.Go(lookUpExplicitDir)
 		}
 	case metadata.RegularFileType, metadata.SymlinkType:
-		b.Add(lookUpFile)
+		group.Go(lookUpFile)
 	case metadata.NonexistentType:
 		return nil, nil
 	case metadata.UnknownType:
-		b.Add(lookUpFile)
+		group.Go(lookUpFile)
 		if d.isBucketHierarchical() {
-			b.Add(lookUpHNSDir)
+			group.Go(lookUpHNSDir)
 		} else {
 			if d.implicitDirs {
-				b.Add(lookUpImplicitOrExplicitDir)
+				group.Go(lookUpImplicitOrExplicitDir)
 			} else {
-				b.Add(lookUpExplicitDir)
+				group.Go(lookUpExplicitDir)
 			}
 		}
 
 	}
 
-	if err := b.Join(); err != nil {
+	if err := group.Wait(); err != nil {
 		return nil, err
 	}
 
@@ -591,6 +601,14 @@ func (d *dirInode) LookUpChild(ctx context.Context, name string) (*Core, error) 
 	}
 
 	return result, nil
+}
+
+func (d *dirInode) IsUnlinked() bool {
+	return d.unlinked
+}
+
+func (d *dirInode) Unlink() {
+	d.unlinked = true
 }
 
 // LOCKS_REQUIRED(d)
@@ -914,13 +932,14 @@ func (d *dirInode) DeleteChildFile(
 func (d *dirInode) DeleteChildDir(
 	ctx context.Context,
 	name string,
-	isImplicitDir bool) error {
+	isImplicitDir bool,
+	dirInode DirInode) error {
 	d.cache.Erase(name)
 
-	// if the directory is an implicit directory, then no backing object
+	// If the directory is an implicit directory, then no backing object
 	// exists in the gcs bucket, so returning from here.
-	// Hierarchical buckets don't have implicit dirs.
-	if isImplicitDir && !d.isBucketHierarchical() {
+	// Hierarchical buckets don't have implicit dirs so this will be always false in hierarchical bucket case.
+	if isImplicitDir {
 		return nil
 	}
 
@@ -948,6 +967,10 @@ func (d *dirInode) DeleteChildDir(
 	// The DeleteFolder operation handles removing empty folders.
 	if err = d.bucket.DeleteFolder(ctx, childName.GcsObjectName()); err != nil {
 		return fmt.Errorf("DeleteFolder: %w", err)
+	}
+
+	if d.isBucketHierarchical() {
+		dirInode.Unlink()
 	}
 
 	d.cache.Erase(name)
