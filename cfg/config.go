@@ -74,6 +74,8 @@ type DebugConfig struct {
 type FileCacheConfig struct {
 	CacheFileForRangeRead bool `yaml:"cache-file-for-range-read,omitempty" json:"cache-file-for-range-read,omitempty"`
 
+	DisableODirect bool `yaml:"disable-o-direct,omitempty" json:"disable-o-direct,omitempty"`
+
 	DownloadChunkSizeMb int64 `yaml:"download-chunk-size-mb,omitempty" json:"download-chunk-size-mb,omitempty"`
 
 	EnableCrc bool `yaml:"enable-crc,omitempty" json:"enable-crc,omitempty"`
@@ -317,6 +319,16 @@ func BindFlags(v *viper.Viper, flagSet *pflag.FlagSet) error {
 		return err
 	}
 
+	flagSet.BoolP("disable-o-direct", "", false, "Whether to disable using O_DIRECT while writing to file-cache in case of parallel downloads.")
+
+	if err := flagSet.MarkHidden("disable-o-direct"); err != nil {
+		return err
+	}
+
+	if err := v.BindPFlag("file-cache.disable-o-direct", flagSet.Lookup("disable-o-direct")); err != nil {
+		return err
+	}
+
 	flagSet.BoolP("disable-parallel-dirops", "", false, "Specifies whether to allow parallel dir operations (lookups and readers)")
 
 	if err := flagSet.MarkHidden("disable-parallel-dirops"); err != nil {
@@ -345,7 +357,7 @@ func BindFlags(v *viper.Viper, flagSet *pflag.FlagSet) error {
 		return err
 	}
 
-	flagSet.BoolP("enable-hns", "", false, "Enables support for HNS buckets")
+	flagSet.BoolP("enable-hns", "", true, "Enables support for HNS buckets")
 
 	if err := v.BindPFlag("enable-hns", flagSet.Lookup("enable-hns")); err != nil {
 		return err

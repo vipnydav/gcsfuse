@@ -18,7 +18,6 @@ import (
 	"context"
 	"log"
 	"testing"
-	"time"
 
 	"github.com/googlecloudplatform/gcsfuse/v2/tools/integration_tests/util/client"
 	"github.com/googlecloudplatform/gcsfuse/v2/tools/integration_tests/util/operations"
@@ -92,7 +91,7 @@ func (s *rangeReadTest) TestRangeReadsBeyondReadChunkSizeWithFileCached(t *testi
 func TestRangeReadTest(t *testing.T) {
 	ts := &rangeReadTest{ctx: context.Background()}
 	// Create storage client before running tests.
-	closeStorageClient := client.CreateStorageClientWithTimeOut(&ts.ctx, &ts.storageClient, 15*time.Minute)
+	closeStorageClient := client.CreateStorageClientWithCancel(&ts.ctx, &ts.storageClient)
 	defer func() {
 		err := closeStorageClient()
 		if err != nil {
@@ -108,7 +107,7 @@ func TestRangeReadTest(t *testing.T) {
 
 	// Run tests with parallel downloads disabled.
 	flagsSet := [][]string{
-		{"--implicit-dirs", "--config-file=" + createConfigFile(largeFileCacheCapacity, false, configFileName+"1", false)},
+		{"--implicit-dirs", "--config-file=" + createConfigFile(largeFileCacheCapacity, false, configFileName+"1", false, getDefaultCacheDirPathForTests())},
 	}
 	for _, flags := range flagsSet {
 		ts.flags = flags
@@ -118,7 +117,7 @@ func TestRangeReadTest(t *testing.T) {
 
 	// Run tests with parallel downloads enabled.
 	flagsSet = [][]string{
-		{"--config-file=" + createConfigFile(largeFileCacheCapacity, true, configFileName+"2", false)},
+		{"--config-file=" + createConfigFile(largeFileCacheCapacity, true, configFileName+"2", false, getDefaultCacheDirPathForTests())},
 	}
 	for _, flags := range flagsSet {
 		ts.flags = flags

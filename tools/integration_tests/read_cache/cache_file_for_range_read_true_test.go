@@ -17,6 +17,7 @@ package read_cache
 import (
 	"context"
 	"log"
+	"path"
 	"testing"
 	"time"
 
@@ -79,7 +80,7 @@ func (s *cacheFileForRangeReadTrueTest) TestRangeReadsWithCacheHit(t *testing.T)
 func TestCacheFileForRangeReadTrueTest(t *testing.T) {
 	ts := &cacheFileForRangeReadTrueTest{ctx: context.Background()}
 	// Create storage client before running tests.
-	closeStorageClient := client.CreateStorageClientWithTimeOut(&ts.ctx, &ts.storageClient, 15*time.Minute)
+	closeStorageClient := client.CreateStorageClientWithCancel(&ts.ctx, &ts.storageClient)
 	defer func() {
 		err := closeStorageClient()
 		if err != nil {
@@ -93,10 +94,15 @@ func TestCacheFileForRangeReadTrueTest(t *testing.T) {
 		return
 	}
 
+	// Run with cache directory pointing to RAM based dir
+	ramCacheDir := path.Join("/dev/shm", cacheDirName)
+
 	// Define flag set to run the tests.
 	flagsSet := [][]string{
-		{"--implicit-dirs", "--config-file=" + createConfigFile(cacheCapacityForRangeReadTestInMiB, true, configFileName, false)},
-		{"--config-file=" + createConfigFile(cacheCapacityForRangeReadTestInMiB, true, configFileNameForParallelDownloadTests, true)},
+		{"--implicit-dirs", "--config-file=" + createConfigFile(cacheCapacityForRangeReadTestInMiB, true, configFileName, false, getDefaultCacheDirPathForTests())},
+		{"--config-file=" + createConfigFile(cacheCapacityForRangeReadTestInMiB, true, configFileNameForParallelDownloadTests, true, getDefaultCacheDirPathForTests())},
+		{"--config-file=" + createConfigFile(cacheCapacityForRangeReadTestInMiB, true, configFileNameForParallelDownloadTests, true, ramCacheDir)},
+		{"--config-file=" + createConfigFile(cacheCapacityForRangeReadTestInMiB, true, configFileName, false, ramCacheDir)},
 	}
 
 	// Run tests.

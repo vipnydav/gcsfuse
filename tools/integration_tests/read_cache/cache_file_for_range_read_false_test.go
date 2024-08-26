@@ -17,9 +17,9 @@ package read_cache
 import (
 	"context"
 	"log"
+	"path"
 	"sync"
 	"testing"
-	"time"
 
 	"cloud.google.com/go/storage"
 	"github.com/googlecloudplatform/gcsfuse/v2/tools/integration_tests/util/client"
@@ -128,7 +128,7 @@ func (s *cacheFileForRangeReadFalseTest) TestConcurrentReads_ReadIsTreatedNonSeq
 func TestCacheFileForRangeReadFalseTest(t *testing.T) {
 	ts := &cacheFileForRangeReadFalseTest{ctx: context.Background()}
 	// Create storage client before running tests.
-	closeStorageClient := client.CreateStorageClientWithTimeOut(&ts.ctx, &ts.storageClient, 15*time.Minute)
+	closeStorageClient := client.CreateStorageClientWithCancel(&ts.ctx, &ts.storageClient)
 	defer func() {
 		err := closeStorageClient()
 		if err != nil {
@@ -142,9 +142,13 @@ func TestCacheFileForRangeReadFalseTest(t *testing.T) {
 		return
 	}
 
+	// Run with cache directory pointing to RAM based dir
+	ramCacheDir := path.Join("/dev/shm", cacheDirName)
+
 	// Run tests with parallel downloads disabled.
 	flagsSet := [][]string{
-		{"--implicit-dirs", "--config-file=" + createConfigFile(cacheCapacityForRangeReadTestInMiB, false, configFileName, false)},
+		{"--implicit-dirs", "--config-file=" + createConfigFile(cacheCapacityForRangeReadTestInMiB, false, configFileName, false, getDefaultCacheDirPathForTests())},
+		{"--config-file=" + createConfigFile(cacheCapacityForRangeReadTestInMiB, false, configFileName, false, ramCacheDir)},
 	}
 	for _, flags := range flagsSet {
 		ts.flags = flags
@@ -154,7 +158,8 @@ func TestCacheFileForRangeReadFalseTest(t *testing.T) {
 
 	// Run tests with parallel downloads enabled.
 	flagsSet = [][]string{
-		{"--config-file=" + createConfigFile(cacheCapacityForRangeReadTestInMiB, false, configFileNameForParallelDownloadTests, true)},
+		{"--config-file=" + createConfigFile(cacheCapacityForRangeReadTestInMiB, false, configFileNameForParallelDownloadTests, true, getDefaultCacheDirPathForTests())},
+		{"--config-file=" + createConfigFile(cacheCapacityForRangeReadTestInMiB, false, configFileNameForParallelDownloadTests, true, ramCacheDir)},
 	}
 	for _, flags := range flagsSet {
 		ts.flags = flags

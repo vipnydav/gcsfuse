@@ -20,7 +20,6 @@ import (
 	"os"
 	"path"
 	"testing"
-	"time"
 
 	"cloud.google.com/go/storage"
 	"github.com/googlecloudplatform/gcsfuse/v2/internal/cache/util"
@@ -99,8 +98,12 @@ func mountGCSFuseAndSetupTestDir(flags []string, ctx context.Context, storageCli
 	testDirPath = client.SetupTestDirectory(ctx, storageClient, testDirName)
 }
 
-func createConfigFile(cacheSize int64, cacheFileForRangeRead bool, fileName string, enableParallelDownloads bool) string {
-	cacheDirPath = path.Join(setup.TestDir(), cacheDirName)
+func getDefaultCacheDirPathForTests() string {
+	return path.Join(setup.TestDir(), cacheDirName)
+}
+
+func createConfigFile(cacheSize int64, cacheFileForRangeRead bool, fileName string, enableParallelDownloads bool, customCacheDirPath string) string {
+	cacheDirPath = customCacheDirPath
 
 	// Set up config file for file cache.
 	mountConfig := map[string]interface{}{
@@ -127,7 +130,7 @@ func TestMain(m *testing.M) {
 	setup.ParseSetUpFlags()
 
 	ctx = context.Background()
-	closeStorageClient := client.CreateStorageClientWithTimeOut(&ctx, &storageClient, time.Minute*15)
+	closeStorageClient := client.CreateStorageClientWithCancel(&ctx, &storageClient)
 	defer func() {
 		err := closeStorageClient()
 		if err != nil {

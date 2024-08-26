@@ -20,7 +20,6 @@ import (
 	"path"
 	"sync"
 	"testing"
-	"time"
 
 	"cloud.google.com/go/storage"
 	"github.com/googlecloudplatform/gcsfuse/v2/internal/cache/util"
@@ -161,7 +160,7 @@ func (s *jobChunkTest) TestJobChunkSizeForMultipleFileReads(t *testing.T) {
 func TestJobChunkTest(t *testing.T) {
 	ts := &jobChunkTest{ctx: context.Background()}
 	// Create storage client before running tests.
-	closeStorageClient := client.CreateStorageClientWithTimeOut(&ts.ctx, &ts.storageClient, 15*time.Minute)
+	closeStorageClient := client.CreateStorageClientWithCancel(&ts.ctx, &ts.storageClient)
 	defer func() {
 		err := closeStorageClient()
 		if err != nil {
@@ -179,7 +178,7 @@ func TestJobChunkTest(t *testing.T) {
 
 	// Tests to validate chunk size when read cache parallel downloads are disabled.
 	var chunkSizeForReadCache int64 = 8
-	ts.flags = []string{"--config-file=" + createConfigFile(cacheSizeMB, true, configFileName, false)}
+	ts.flags = []string{"--config-file=" + createConfigFile(cacheSizeMB, true, configFileName, false, getDefaultCacheDirPathForTests())}
 	ts.chunkSize = chunkSizeForReadCache * util.MiB
 	log.Printf("Running tests with flags: %s", ts.flags)
 	test_setup.RunTests(t, ts)

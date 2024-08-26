@@ -299,6 +299,7 @@ func TestValidateConfigFile_FileCacheConfigSuccessful(t *testing.T) {
 					MaxSizeMb:                40,
 					ParallelDownloadsPerFile: 10,
 					WriteBufferSize:          8192,
+					DisableODirect:           true,
 				},
 			},
 		},
@@ -550,14 +551,14 @@ func TestValidateConfigFile_EnableHNSConfigSuccessful(t *testing.T) {
 			name:       "empty_config_file",
 			configFile: "testdata/empty_file.yaml",
 			expectedConfig: &cfg.Config{
-				EnableHns: false,
+				EnableHns: true,
 			},
 		},
 		{
 			name:       "valid_config_file",
 			configFile: "testdata/valid_config.yaml",
 			expectedConfig: &cfg.Config{
-				EnableHns: true,
+				EnableHns: false,
 			},
 		},
 	}

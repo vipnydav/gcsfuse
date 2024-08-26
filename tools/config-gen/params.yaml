@@ -61,13 +61,20 @@
   flag-name: "enable-hns"
   type: "bool"
   usage: "Enables support for HNS buckets"
-  default: false
+  default: true
 
 - config-path: "file-cache.cache-file-for-range-read"
   flag-name: "cache-file-for-range-read"
   type: "bool"
   usage: "Whether to cache file for range reads."
   default: false
+
+- config-path: "file-cache.disable-o-direct"
+  flag-name: "disable-o-direct"
+  type: "bool"
+  usage: "Whether to disable using O_DIRECT while writing to file-cache in case of parallel downloads."
+  default: "false"
+  hide-flag: true
 
 - config-path: "file-cache.download-chunk-size-mb"
   flag-name: "download-chunk-size-mb"
