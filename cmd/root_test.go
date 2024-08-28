@@ -240,7 +240,7 @@ func TestArgsParsing_FileCacheFlags(t *testing.T) {
 	}{
 		{
 			name: "Test file cache flags.",
-			args: []string{"gcsfuse", "--cache-file-for-range-read", "--download-chunk-size-mb=20", "--enable-crc", "--enable-parallel-downloads", "--max-parallel-downloads=40", "--file-cache-max-size-mb=100", "--parallel-downloads-per-file=2", "abc", "pqr"},
+			args: []string{"gcsfuse", "--cache-file-for-range-read", "--download-chunk-size-mb=20", "--enable-crc", "--enable-parallel-downloads", "--max-parallel-downloads=40", "--file-cache-max-size-mb=100", "--parallel-downloads-per-file=2", "--disable-o-direct=false", "abc", "pqr"},
 			expectedConfig: &cfg.Config{
 				FileCache: cfg.FileCacheConfig{
 					CacheFileForRangeRead:    true,
@@ -251,6 +251,7 @@ func TestArgsParsing_FileCacheFlags(t *testing.T) {
 					MaxSizeMb:                100,
 					ParallelDownloadsPerFile: 2,
 					WriteBufferSize:          4 * 1024 * 1024,
+					DisableODirect:           false,
 				},
 			},
 		},
@@ -267,6 +268,7 @@ func TestArgsParsing_FileCacheFlags(t *testing.T) {
 					MaxSizeMb:                -1,
 					ParallelDownloadsPerFile: 16,
 					WriteBufferSize:          4 * 1024 * 1024,
+					DisableODirect:           true,
 				},
 			},
 		},
@@ -741,7 +743,7 @@ func TestArgsParsing_EnableHNSFlags(t *testing.T) {
 		{
 			name:              "default",
 			args:              []string{"gcsfuse", "abc", "pqr"},
-			expectedEnableHNS: true,
+			expectedEnableHNS: false,
 		},
 	}
 
@@ -759,6 +761,65 @@ func TestArgsParsing_EnableHNSFlags(t *testing.T) {
 
 			if assert.NoError(t, err) {
 				assert.Equal(t, tc.expectedEnableHNS, gotEnableHNS)
+			}
+		})
+	}
+}
+
+func TestArgsParsing_MetadataCacheFlags(t *testing.T) {
+	tests := []struct {
+		name           string
+		args           []string
+		expectedConfig *cfg.Config
+	}{
+		{
+			name: "normal",
+			args: []string{"gcsfuse", "--stat-cache-capacity=2000", "--stat-cache-ttl=2m", "--type-cache-ttl=1m20s", "--enable-nonexistent-type-cache", "--experimental-metadata-prefetch-on-mount=async", "--stat-cache-max-size-mb=15", "--metadata-cache-ttl-secs=25", "--type-cache-max-size-mb=30", "abc", "pqr"},
+			expectedConfig: &cfg.Config{
+				MetadataCache: cfg.MetadataCacheConfig{
+					DeprecatedStatCacheCapacity:         2000,
+					DeprecatedStatCacheTtl:              2 * time.Minute,
+					DeprecatedTypeCacheTtl:              80 * time.Second,
+					EnableNonexistentTypeCache:          true,
+					ExperimentalMetadataPrefetchOnMount: "async",
+					StatCacheMaxSizeMb:                  15,
+					TtlSecs:                             25,
+					TypeCacheMaxSizeMb:                  30,
+				},
+			},
+		},
+		{
+			name: "default",
+			args: []string{"gcsfuse", "abc", "pqr"},
+			expectedConfig: &cfg.Config{
+				MetadataCache: cfg.MetadataCacheConfig{
+					DeprecatedStatCacheCapacity:         20460,
+					DeprecatedStatCacheTtl:              60 * time.Second,
+					DeprecatedTypeCacheTtl:              60 * time.Second,
+					EnableNonexistentTypeCache:          false,
+					ExperimentalMetadataPrefetchOnMount: "disabled",
+					StatCacheMaxSizeMb:                  32,
+					TtlSecs:                             60,
+					TypeCacheMaxSizeMb:                  4,
+				},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var gotConfig *cfg.Config
+			cmd, err := NewRootCmd(func(cfg *cfg.Config, _, _ string) error {
+				gotConfig = cfg
+				return nil
+			})
+			require.Nil(t, err)
+			cmd.SetArgs(tc.args)
+
+			err = cmd.Execute()
+
+			if assert.NoError(t, err) {
+				assert.Equal(t, tc.expectedConfig.MetadataCache, gotConfig.MetadataCache)
 			}
 		})
 	}

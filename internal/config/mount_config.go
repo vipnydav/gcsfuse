@@ -15,35 +15,15 @@
 package config
 
 import (
-	"math"
-
 	"github.com/googlecloudplatform/gcsfuse/v2/cfg"
 	"github.com/googlecloudplatform/gcsfuse/v2/internal/cache/util"
 )
 
 const (
-
-	// TtlInSecsUnsetSentinel is the value internally
-	// set for metada-cache:ttl-secs
-	// when it is not set in the gcsfuse mount config file.
-	// The constant value has been chosen deliberately
-	// to be improbable for a user to explicitly set.
-	TtlInSecsUnsetSentinel int64 = math.MinInt64
-
-	// DefaultTypeCacheMaxSizeMB is the default value of type-cache max-size for every directory in MiBs.
-	// The value is set at the size needed for about 21k type-cache entries,
-	// each of which is about 200 bytes in size.
-	DefaultTypeCacheMaxSizeMB int = 4
-
-	// StatCacheMaxSizeMBUnsetSentinel is the value internally
-	// set for metada-cache:stat-cache-max-size-mb
-	// when it is not set in the gcsfuse mount config file.
-	StatCacheMaxSizeMBUnsetSentinel int64 = math.MinInt64
-
 	DefaultEnableEmptyManagedFoldersListing = false
 	DefaultGrpcConnPoolSize                 = 1
 	DefaultAnonymousAccess                  = false
-	DefaultEnableHNS                        = true
+	DefaultEnableHNS                        = false
 	DefaultIgnoreInterrupts                 = true
 	DefaultPrometheusPort                   = 0
 
@@ -58,7 +38,12 @@ const (
 	DefaultDownloadChunkSizeMB      = 50
 	DefaultParallelDownloadsPerFile = 16
 	DefaultWriteBufferSize          = int64(4 * util.MiB)
-	DefaultDisableODirect           = false
+	DefaultDisableODirect           = true
+
+	// DefaultTypeCacheMaxSizeMB is the default value of type-cache max-size for every directory in MiBs.
+	// The value is set at the size needed for about 21k type-cache entries,
+	// each of which is about 200 bytes in size.
+	DefaultTypeCacheMaxSizeMB = 4
 )
 
 type LogConfig struct {
@@ -193,9 +178,9 @@ func NewMountConfig() *MountConfig {
 		DisableODirect:           DefaultDisableODirect,
 	}
 	mountConfig.MetadataCacheConfig = MetadataCacheConfig{
-		TtlInSeconds:       TtlInSecsUnsetSentinel,
+		TtlInSeconds:       cfg.TtlInSecsUnsetSentinel,
 		TypeCacheMaxSizeMB: DefaultTypeCacheMaxSizeMB,
-		StatCacheMaxSizeMB: StatCacheMaxSizeMBUnsetSentinel,
+		StatCacheMaxSizeMB: cfg.StatCacheMaxSizeMBUnsetSentinel,
 	}
 	mountConfig.ListConfig = ListConfig{
 		EnableEmptyManagedFolders: DefaultEnableEmptyManagedFoldersListing,
