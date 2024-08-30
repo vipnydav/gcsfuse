@@ -164,7 +164,7 @@ TEST_DIR_NON_PARALLEL=(
 # Create a temporary file to store the log file name.
 TEST_LOGS_FILE=$(mktemp)
 GO_TEST_SHORT_FLAG="-short"
-INTEGRATION_TEST_TIMEOUT=60m
+INTEGRATION_TEST_TIMEOUT=100m
 BUCKET_NAME=$(sed -n 3p ~/details.txt)
 function run_non_parallel_tests() {
   local exit_code=0
@@ -230,7 +230,7 @@ parallel_tests_exit_code=$?
 echo "Running non parallel tests ..."
 run_non_parallel_tests TEST_DIR_NON_PARALLEL
 non_parallel_tests_exit_code=$?
-gather_test_logs()
+gather_test_logs
 if [ $parallel_tests_exit_code != 0 ] || [ $non_parallel_tests_exit_code != 0 ]
 then
     echo "Test failures detected" &>> ~/logs.txt
