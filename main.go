@@ -24,9 +24,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/googlecloudplatform/gcsfuse/v2/cfg"
 	"github.com/googlecloudplatform/gcsfuse/v2/cmd"
 	"github.com/googlecloudplatform/gcsfuse/v2/internal/logger"
+	"github.com/googlecloudplatform/gcsfuse/v2/internal/perf"
 )
 
 func logPanic() {
@@ -62,15 +62,18 @@ func convertToPosixArgs(args []string) []string {
 // which is used for flag and config file parsing.
 // Refer https://go.dev/blog/generate for details.
 //
-//go:generate go run -C tools/config-gen . --paramsFile=params.yaml --outDir=../../cfg --templateDir=templates
+//go:generate go run -C tools/config-gen . --paramsFile=../../cfg/params.yaml --outDir=../../cfg --templateDir=templates
 func main() {
 	// Common configuration for all commands
 	defer logPanic()
 	// Make logging output better.
 	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
+	// Set up profiling handlers.
+	go perf.HandleCPUProfileSignals()
+	go perf.HandleMemoryProfileSignals()
 	if strings.ToLower(os.Getenv("ENABLE_GCSFUSE_VIPER_CONFIG")) == "true" {
 		// TODO: implement the mount logic instead of simply returning nil.
-		rootCmd, err := cmd.NewRootCmd(func(*cfg.Config, string, string) error { return nil })
+		rootCmd, err := cmd.NewRootCmd(cmd.Mount)
 		if err != nil {
 			log.Fatalf("Error occurred while creating the root command: %v", err)
 		}
