@@ -33,7 +33,7 @@ func TestDefaultMaxParallelDownloads(t *testing.T) {
 		return nil
 	})
 	require.Nil(t, err)
-	cmd.SetArgs([]string{"abc", "pqr"})
+	cmd.SetArgs(ConvertToPosixArgs([]string{"abc", "pqr"}, cmd))
 
 	if assert.Nil(t, cmd.Execute()) {
 		assert.LessOrEqual(t, int64(16), actual.FileCache.MaxParallelDownloads)
@@ -72,7 +72,7 @@ func TestCobraArgsNumInRange(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cmd, err := NewRootCmd(func(*cfg.Config, string, string) error { return nil })
 			require.Nil(t, err)
-			cmd.SetArgs(tc.args)
+			cmd.SetArgs(ConvertToPosixArgs(tc.args, cmd))
 
 			err = cmd.Execute()
 
@@ -131,7 +131,7 @@ func TestArgsParsing_MountPoint(t *testing.T) {
 				return nil
 			})
 			require.Nil(t, err)
-			cmd.SetArgs(tc.args)
+			cmd.SetArgs(ConvertToPosixArgs(tc.args, cmd))
 
 			err = cmd.Execute()
 
@@ -179,7 +179,7 @@ func TestArgsParsing_MountOptions(t *testing.T) {
 				return nil
 			})
 			require.Nil(t, err)
-			cmd.SetArgs(tc.args)
+			cmd.SetArgs(ConvertToPosixArgs(tc.args, cmd))
 
 			err = cmd.Execute()
 
@@ -221,7 +221,7 @@ func TestArgsParsing_CreateEmptyFileFlag(t *testing.T) {
 				return nil
 			})
 			require.Nil(t, err)
-			cmd.SetArgs(tc.args)
+			cmd.SetArgs(ConvertToPosixArgs(tc.args, cmd))
 
 			err = cmd.Execute()
 
@@ -240,7 +240,7 @@ func TestArgsParsing_FileCacheFlags(t *testing.T) {
 	}{
 		{
 			name: "Test file cache flags.",
-			args: []string{"gcsfuse", "--cache-file-for-range-read", "--download-chunk-size-mb=20", "--enable-crc", "--enable-parallel-downloads", "--max-parallel-downloads=40", "--file-cache-max-size-mb=100", "--parallel-downloads-per-file=2", "--enable-o-direct=false", "abc", "pqr"},
+			args: []string{"gcsfuse", "--file-cache-cache-file-for-range-read", "--file-cache-download-chunk-size-mb=20", "--file-cache-enable-crc", "--file-cache-enable-parallel-downloads", "--file-cache-max-parallel-downloads=40", "--file-cache-max-size-mb=100", "--file-cache-parallel-downloads-per-file=2", "--file-cache-enable-o-direct=false", "abc", "pqr"},
 			expectedConfig: &cfg.Config{
 				FileCache: cfg.FileCacheConfig{
 					CacheFileForRangeRead:    true,
@@ -282,7 +282,7 @@ func TestArgsParsing_FileCacheFlags(t *testing.T) {
 				return nil
 			})
 			require.Nil(t, err)
-			cmd.SetArgs(tc.args)
+			cmd.SetArgs(ConvertToPosixArgs(tc.args, cmd))
 
 			err = cmd.Execute()
 
@@ -334,7 +334,7 @@ func TestArgParsing_ExperimentalMetadataPrefetchFlag(t *testing.T) {
 				return nil
 			})
 			require.Nil(t, err)
-			cmd.SetArgs(tc.args)
+			cmd.SetArgs(ConvertToPosixArgs(tc.args, cmd))
 
 			err = cmd.Execute()
 
@@ -366,7 +366,7 @@ func TestArgParsing_ExperimentalMetadataPrefetchFlag_Failed(t *testing.T) {
 				return nil
 			})
 			require.Nil(t, err)
-			cmd.SetArgs(tc.args)
+			cmd.SetArgs(ConvertToPosixArgs(tc.args, cmd))
 
 			err = cmd.Execute()
 
@@ -417,7 +417,7 @@ func TestArgsParsing_GCSAuthFlags(t *testing.T) {
 				return nil
 			})
 			require.Nil(t, err)
-			cmd.SetArgs(tc.args)
+			cmd.SetArgs(ConvertToPosixArgs(tc.args, cmd))
 
 			err = cmd.Execute()
 
@@ -454,7 +454,7 @@ func TestArgsParsing_GCSAuthFlagsThrowsError(t *testing.T) {
 				return nil
 			})
 			require.Nil(t, err)
-			cmd.SetArgs(tc.args)
+			cmd.SetArgs(ConvertToPosixArgs(tc.args, cmd))
 
 			assert.Error(t, cmd.Execute())
 		})
@@ -515,7 +515,7 @@ func TestArgsParsing_GCSConnectionFlags(t *testing.T) {
 				return nil
 			})
 			require.Nil(t, err)
-			cmd.SetArgs(tc.args)
+			cmd.SetArgs(ConvertToPosixArgs(tc.args, cmd))
 
 			err = cmd.Execute()
 
@@ -558,7 +558,7 @@ func TestArgsParsing_GCSConnectionFlagsThrowsError(t *testing.T) {
 				return nil
 			})
 			require.Nil(t, err)
-			cmd.SetArgs(tc.args)
+			cmd.SetArgs(ConvertToPosixArgs(tc.args, cmd))
 
 			assert.Error(t, cmd.Execute())
 		})
@@ -637,7 +637,7 @@ func TestArgsParsing_FileSystemFlags(t *testing.T) {
 				return nil
 			})
 			require.Nil(t, err)
-			cmd.SetArgs(tc.args)
+			cmd.SetArgs(ConvertToPosixArgs(tc.args, cmd))
 
 			err = cmd.Execute()
 
@@ -681,7 +681,7 @@ func TestArgsParsing_FileSystemFlagsThrowsError(t *testing.T) {
 				return nil
 			})
 			require.Nil(t, err)
-			cmd.SetArgs(tc.args)
+			cmd.SetArgs(ConvertToPosixArgs(tc.args, cmd))
 
 			assert.Error(t, cmd.Execute())
 		})
@@ -718,7 +718,7 @@ func TestArgsParsing_ListFlags(t *testing.T) {
 				return nil
 			})
 			require.Nil(t, err)
-			cmd.SetArgs(tc.args)
+			cmd.SetArgs(ConvertToPosixArgs(tc.args, cmd))
 
 			err = cmd.Execute()
 
@@ -743,7 +743,7 @@ func TestArgsParsing_EnableHNSFlags(t *testing.T) {
 		{
 			name:              "default",
 			args:              []string{"gcsfuse", "abc", "pqr"},
-			expectedEnableHNS: false,
+			expectedEnableHNS: true,
 		},
 	}
 
@@ -755,7 +755,7 @@ func TestArgsParsing_EnableHNSFlags(t *testing.T) {
 				return nil
 			})
 			require.Nil(t, err)
-			cmd.SetArgs(tc.args)
+			cmd.SetArgs(ConvertToPosixArgs(tc.args, cmd))
 
 			err = cmd.Execute()
 
@@ -814,7 +814,7 @@ func TestArgsParsing_MetadataCacheFlags(t *testing.T) {
 				return nil
 			})
 			require.Nil(t, err)
-			cmd.SetArgs(tc.args)
+			cmd.SetArgs(ConvertToPosixArgs(tc.args, cmd))
 
 			err = cmd.Execute()
 

@@ -56,12 +56,12 @@ type managedFoldersAdminPermission struct {
 }
 
 func (s *managedFoldersAdminPermission) Setup(t *testing.T) {
-	createDirectoryStructureForNonEmptyManagedFolders(t)
+	createDirectoryStructureForNonEmptyManagedFolders(ctx, storageClient, t)
 	if s.managedFoldersPermission != "nil" {
 		providePermissionToManagedFolder(bucket, path.Join(testDir, ManagedFolder1), serviceAccount, s.managedFoldersPermission, t)
 		providePermissionToManagedFolder(bucket, path.Join(testDir, ManagedFolder2), serviceAccount, s.managedFoldersPermission, t)
-		// Waiting for 10 seconds as it usually takes 10 seconds for policy changes to propagate.
-		time.Sleep(10 * time.Second)
+		// Waiting for 20 seconds for policy changes to propagate. This values we kept based on our experiments.
+		time.Sleep(20 * time.Second)
 	}
 }
 

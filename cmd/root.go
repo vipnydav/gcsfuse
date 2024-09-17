@@ -16,11 +16,14 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/googlecloudplatform/gcsfuse/v2/cfg"
+	"github.com/googlecloudplatform/gcsfuse/v2/common"
 	"github.com/googlecloudplatform/gcsfuse/v2/internal/util"
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
 
@@ -40,8 +43,9 @@ func NewRootCmd(m mountFn) (*cobra.Command, error) {
 		Long: `Cloud Storage FUSE is an open source FUSE adapter that lets you mount 
 and access Cloud Storage buckets as local file systems. For a technical overview
 of Cloud Storage FUSE, see https://cloud.google.com/storage/docs/gcs-fuse.`,
-		Version: getVersion(),
-		Args:    cobra.RangeArgs(2, 3),
+		Version:      common.GetVersion(),
+		Args:         cobra.RangeArgs(2, 3),
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if cfgErr != nil {
 				return fmt.Errorf("error while parsing config: %w", cfgErr)
@@ -93,4 +97,46 @@ of Cloud Storage FUSE, see https://cloud.google.com/storage/docs/gcs-fuse.`,
 		return nil, fmt.Errorf("error while declaring/binding flags: %w", err)
 	}
 	return rootCmd, nil
+}
+
+// ConvertToPosixArgs converts a slice of commandline args and transforms them
+// into POSIX compliant args. All it does is that it converts flags specified
+// using a single-hyphen to double-hyphens. We are excluding "-v" because it's
+// reserved for showing version in Cobra.
+func ConvertToPosixArgs(args []string, c *cobra.Command) []string {
+	pArgs := make([]string, 0, len(args))
+	flagSet := make(map[string]bool)
+	c.PersistentFlags().VisitAll(func(f *pflag.Flag) {
+		flagSet[f.Name] = true
+	})
+	// Treat help and version like flags
+	flagSet["version"] = true
+	flagSet["help"] = true
+	for _, a := range args {
+		switch {
+		case a == "--v", a == "-v":
+			pArgs = append(pArgs, "-v")
+		case a == "--h", a == "-h":
+			pArgs = append(pArgs, "-h")
+		case strings.HasPrefix(a, "-") && !strings.HasPrefix(a, "--"):
+			// Remove the string post the "=" sign.
+			// This converts -a=b to -a.
+			flg, _, _ := strings.Cut(a, "=")
+			// Remove one hyphen from the beginning.
+			// This converts -a -> a.
+			flg, _ = strings.CutPrefix(flg, "-")
+
+			if flagSet[flg] {
+				// "a" is a full-form flag which has been specified with a single hyphen.
+				// So add another hyphen so that pflag processes it correctly.
+				pArgs = append(pArgs, "-"+a)
+			} else {
+				// "a" is a flag so, keep it as is.
+				pArgs = append(pArgs, a)
+			}
+		default:
+			pArgs = append(pArgs, a)
+		}
+	}
+	return pArgs
 }

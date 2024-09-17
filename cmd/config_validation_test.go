@@ -37,7 +37,7 @@ func getConfigObject(t *testing.T, args []string) (*cfg.Config, error) {
 	require.Nil(t, err)
 	cmdArgs := append([]string{"gcsfuse"}, args...)
 	cmdArgs = append(cmdArgs, "a")
-	cmd.SetArgs(cmdArgs)
+	cmd.SetArgs(ConvertToPosixArgs(cmdArgs, cmd))
 	if err = cmd.Execute(); err != nil {
 		return nil, err
 	}
@@ -572,14 +572,14 @@ func TestValidateConfigFile_EnableHNSConfigSuccessful(t *testing.T) {
 			name:       "empty_config_file",
 			configFile: "testdata/empty_file.yaml",
 			expectedConfig: &cfg.Config{
-				EnableHns: false,
+				EnableHns: true,
 			},
 		},
 		{
 			name:       "valid_config_file",
 			configFile: "testdata/valid_config.yaml",
 			expectedConfig: &cfg.Config{
-				EnableHns: true,
+				EnableHns: false,
 			},
 		},
 	}

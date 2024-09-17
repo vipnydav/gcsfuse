@@ -236,10 +236,14 @@ func (d dummyFS) Fallocate(_ context.Context, _ *fuseops.FallocateOp) error {
 
 func (d dummyFS) Destroy() {}
 
-func TestSpan(t *testing.T) {
+func TestSpanCreation(t *testing.T) {
 	ex := newInMemoryExporter(t)
+	t.Cleanup(func() {
+		ex.Reset()
+	})
 	m := monitoring{
 		wrapped: dummyFS{},
+		tracer:  otel.Tracer("test"),
 	}
 
 	err := m.StatFS(context.Background(), nil)
