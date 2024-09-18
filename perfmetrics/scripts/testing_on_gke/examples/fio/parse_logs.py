@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # Copyright 2018 The Kubernetes Authors.
-# Copyright 2022 Google LLC
+# Copyright 2024 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,13 +15,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# standard library imports
 import argparse
-import json, os, pprint, subprocess
+import json
+import os
+import pprint
+import subprocess
 import sys
-import fio_workload
 
+# local library imports
 sys.path.append("../")
-from utils.utils import get_memory, get_cpu, unix_to_timestamp, is_mash_installed
+import fio_workload
+from utils.utils import get_memory, get_cpu, standard_timestamp, is_mash_installed
 
 _LOCAL_LOGS_LOCATION = "../../bin/fio-logs"
 
@@ -46,15 +51,19 @@ record = {
 }
 
 
+def ensureDir(dirpath):
+  try:
+    os.makedirs(dirpath)
+  except FileExistsError:
+    pass
+
+
 def downloadFioOutputs(fioWorkloads: set, instanceId: str):
   for fioWorkload in fioWorkloads:
     dstDir = (
         _LOCAL_LOGS_LOCATION + "/" + instanceId + "/" + fioWorkload.fileSize
     )
-    try:
-      os.makedirs(dstDir)
-    except FileExistsError:
-      pass
+    ensureDir(dstDir)
 
     print(f"Downloading FIO outputs from {fioWorkload.bucket}...")
     result = subprocess.run(
@@ -107,12 +116,16 @@ if __name__ == "__main__":
       help="unique string ID for current test-run",
       required=True,
   )
+  parser.add_argument(
+      "-o",
+      "--output-file",
+      metavar="Output file (CSV) path",
+      help="File path of the output metrics (in CSV format)",
+      default="output.csv",
+  )
   args = parser.parse_args()
 
-  try:
-    os.makedirs(_LOCAL_LOGS_LOCATION)
-  except FileExistsError:
-    pass
+  ensureDir(_LOCAL_LOGS_LOCATION)
 
   fioWorkloads = fio_workload.ParseTestConfigForFioWorkloads(
       args.workload_config
@@ -136,6 +149,7 @@ if __name__ == "__main__":
 
   for root, _, files in os.walk(_LOCAL_LOGS_LOCATION + "/" + args.instance_id):
     for file in files:
+      print(f"Parsing directory {root} ...")
       per_epoch_output = root + f"/{file}"
       if not per_epoch_output.endswith(".json"):
         print(f"ignoring file {per_epoch_output} as it's not a json file")
@@ -146,6 +160,13 @@ if __name__ == "__main__":
       if os.path.isfile(gcsfuse_mount_options_file):
         with open(gcsfuse_mount_options_file) as f:
           gcsfuse_mount_options = f.read().strip()
+          print(f"gcsfuse_mount_options={gcsfuse_mount_options}")
+
+      pod_name = ""
+      pod_name_file = root + "/pod_name"
+      with open(pod_name_file) as f:
+        pod_name = f.read().strip()
+      print(f"pod_name={pod_name}")
 
       with open(per_epoch_output, "r") as f:
         try:
@@ -181,9 +202,7 @@ if __name__ == "__main__":
       numjobs = int(global_options["numjobs"])
       bs = per_epoch_output_data["jobs"][0]["job options"]["bs"]
 
-      key = "-".join(
-          [read_type, mean_file_size, bs, str(numjobs), str(nrfiles)]
-      )
+      key = root_split[-3]
       if key not in output:
         output[key] = {
             "mean_file_size": mean_file_size,
@@ -198,9 +217,7 @@ if __name__ == "__main__":
 
       r = record.copy()
       bs = per_epoch_output_data["jobs"][0]["job options"]["bs"]
-      r["pod_name"] = (
-          f"fio-tester-{args.instance_id}-{scenario}-{read_type}-{mean_file_size.lower()}-{bs.lower()}-{numjobs}-{nrfiles}"
-      )
+      r["pod_name"] = pod_name
       r["epoch"] = epoch
       r["scenario"] = scenario
       r["duration"] = int(
@@ -247,7 +264,9 @@ if __name__ == "__main__":
       "gcsfuse-file-cache",
   ]
 
-  output_file = open("./output.csv", "a")
+  output_file_path = args.output_file
+  ensureDir(os.path.dirname(output_file_path))
+  output_file = open(output_file_path, "a")
   output_file.write(
       "File Size,Read Type,Scenario,Epoch,Duration"
       " (s),Throughput (MB/s),IOPS,Throughput over Local SSD (%),GCSFuse Lowest"

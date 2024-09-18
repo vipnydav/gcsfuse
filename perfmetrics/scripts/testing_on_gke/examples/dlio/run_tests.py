@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # Copyright 2018 The Kubernetes Authors.
-# Copyright 2022 Google LLC
+# Copyright 2024 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,22 +34,38 @@ def run_command(command: str):
   print(result.stderr)
 
 
-def createHelmInstallCommands(dlioWorkloads: set, instanceId: str):
-  """Create helm install commands for the given set of dlioWorkload objects."""
+def escapeCommasInString(unescapedStr: str) -> str:
+  """Returns equivalent string with ',' replaced with '\,' ."""
+  return unescapedStr.replace(',', '\,')
+
+
+def createHelmInstallCommands(
+    dlioWorkloads: set,
+    instanceId: str,
+    machineType: str,
+) -> list:
+  """Creates helm install commands for the given dlioWorkload objects."""
   helm_commands = []
   for dlioWorkload in dlioWorkloads:
     for batchSize in dlioWorkload.batchSizes:
+      chartName, podName, outputDirPrefix = dlio_workload.DlioChartNamePodName(
+          dlioWorkload, instanceId, batchSize
+      )
       commands = [
-          (
-              'helm install'
-              f' dlio-unet3d-{dlioWorkload.scenario}-{dlioWorkload.numFilesTrain}-{dlioWorkload.recordLength}-{batchSize} unet3d-loading-test'
-          ),
+          f'helm install {chartName} unet3d-loading-test',
           f'--set bucketName={dlioWorkload.bucket}',
           f'--set scenario={dlioWorkload.scenario}',
           f'--set dlio.numFilesTrain={dlioWorkload.numFilesTrain}',
           f'--set dlio.recordLength={dlioWorkload.recordLength}',
           f'--set dlio.batchSize={batchSize}',
           f'--set instanceId={instanceId}',
+          (
+              '--set'
+              f' gcsfuse.mountOptions={escapeCommasInString(dlioWorkload.gcsfuseMountOptions)}'
+          ),
+          f'--set nodeType={machineType}',
+          f'--set podName={podName}',
+          f'--set outputDirPrefix={outputDirPrefix}',
       ]
 
       helm_command = ' '.join(commands)
@@ -62,7 +78,9 @@ def main(args) -> None:
       args.workload_config
   )
   helmInstallCommands = createHelmInstallCommands(
-      dlioWorkloads, args.instance_id
+      dlioWorkloads,
+      args.instance_id,
+      args.machine_type,
   )
   for helmInstallCommand in helmInstallCommands:
     print(f'{helmInstallCommand}')
@@ -81,12 +99,23 @@ if __name__ == '__main__':
   )
   parser.add_argument(
       '--workload-config',
-      help='Runs DLIO Unet3d tests using this JSON workload configuration.',
+      metavar='JSON workload configuration file path',
+      help='Runs DLIO Unet3d tests from this JSON workload configuration file.',
       required=True,
   )
   parser.add_argument(
       '--instance-id',
-      help='unique string ID for current test-run',
+      metavar='A unique string ID to represent the test-run',
+      help=(
+          'Set to a unique string ID for current test-run. Do not put spaces'
+          ' in it.'
+      ),
+      required=True,
+  )
+  parser.add_argument(
+      '--machine-type',
+      metavar='Machine-type of the GCE VM or GKE cluster node',
+      help='Machine-type of the GCE VM or GKE cluster node e.g. n2-standard-32',
       required=True,
   )
   parser.add_argument(
@@ -98,5 +127,19 @@ if __name__ == '__main__':
           ' not actually run them.'
       ),
   )
+
   args = parser.parse_args()
+  for argument in ['instance_id', 'machine_type']:
+    value = getattr(args, argument)
+    if len(value) == 0 or str.isspace(value):
+      raise Exception(
+          f'Argument {argument} (value="{value}") is empty or contains only'
+          ' spaces.'
+      )
+    if ' ' in value:
+      raise Exception(
+          f'Argument {argument} (value="{value}") contains space in it, which'
+          ' is not supported.'
+      )
+
   main(args)
