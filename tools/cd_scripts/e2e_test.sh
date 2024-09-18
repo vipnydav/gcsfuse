@@ -326,7 +326,7 @@ e2e_tests_flat_bucket_pid=$!
 wait $e2e_tests_flat_bucket_pid
 e2e_tests_flat_bucket_status=$?
 
-~.wait $e2e_tests_hns_bucket_pid
+wait $e2e_tests_hns_bucket_pid
 e2e_tests_hns_bucket_status=$?
 
 gather_test_logs
