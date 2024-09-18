@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # Copyright 2018 The Kubernetes Authors.
-# Copyright 2022 Google LLC
+# Copyright 2024 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,12 +15,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# standard library imports
 import argparse
-import json, os, pprint, subprocess
+import json
+import os
+import pprint
+import subprocess
 import sys
-import dlio_workload
 
+# local library imports
 sys.path.append("../")
+import dlio_workload
 from utils.utils import get_memory, get_cpu, standard_timestamp, is_mash_installed
 
 _LOCAL_LOGS_LOCATION = "../../bin/dlio-logs/logs"
@@ -42,6 +47,13 @@ record = {
     "lowest_cpu": 0.0,
     "gcsfuse_mount_options": "",
 }
+
+
+def ensureDir(dirpath):
+  try:
+    os.makedirs(dirpath)
+  except FileExistsError:
+    pass
 
 
 def downloadDlioOutputs(dlioWorkloads: set, instanceId: str):
@@ -97,12 +109,16 @@ if __name__ == "__main__":
       help="unique string ID for current test-run",
       required=True,
   )
+  parser.add_argument(
+      "-o",
+      "--output-file",
+      metavar="Output file (CSV) path",
+      help="File path of the output metrics (in CSV format)",
+      default="output.csv",
+  )
   args = parser.parse_args()
 
-  try:
-    os.makedirs(_LOCAL_LOGS_LOCATION)
-  except FileExistsError:
-    pass
+  ensureDir(_LOCAL_LOGS_LOCATION)
 
   dlioWorkloads = dlio_workload.ParseTestConfigForDlioWorkloads(
       args.workload_config
@@ -152,15 +168,14 @@ if __name__ == "__main__":
           continue
 
       for i in range(summary_data["epochs"]):
-        test_name = summary_data["hostname"]
-        part_list = test_name.split("-")
-        key = "-".join(part_list[2:5])
+        key = root.split("/")[-2]
+        key_split = key.split("-")
 
         if key not in output:
           output[key] = {
-              "num_files_train": part_list[-3],
-              "mean_file_size": part_list[-2],
-              "batch_size": part_list[-1],
+              "num_files_train": key_split[-4],
+              "mean_file_size": key_split[-3],
+              "batch_size": key_split[-2],
               "records": {
                   "local-ssd": [],
                   "gcsfuse-generic": [],
@@ -220,7 +235,9 @@ if __name__ == "__main__":
       "gcsfuse-file-cache",
   ]
 
-  output_file = open("./output.csv", "a")
+  output_file_path = args.output_file
+  ensureDir(os.path.dirname(output_file_path))
+  output_file = open(output_file_path, "a")
   output_file.write(
       "File Size,File #,Total Size (GB),Batch Size,Scenario,Epoch,Duration"
       " (s),GPU Utilization (%),Throughput (sample/s),Throughput"

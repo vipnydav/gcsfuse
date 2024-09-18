@@ -49,6 +49,7 @@ import (
 const (
 	SuccessfulMountMessage         = "File system has been successfully mounted."
 	UnsuccessfulMountMessagePrefix = "Error while mounting gcsfuse"
+	EnableViperConfigEnvVariable   = "ENABLE_GCSFUSE_VIPER_CONFIG"
 )
 
 ////////////////////////////////////////////////////////////////////////
@@ -99,7 +100,11 @@ func getConfigForUserAgent(mountConfig *cfg.Config) string {
 	if mountConfig.FileCache.CacheFileForRangeRead {
 		isFileCacheForRangeReadEnabled = "1"
 	}
-	return fmt.Sprintf("%s:%s", isFileCacheEnabled, isFileCacheForRangeReadEnabled)
+	isParallelDownloadsEnabled := "0"
+	if cfg.IsParallelDownloadsEnabled(mountConfig) {
+		isParallelDownloadsEnabled = "1"
+	}
+	return fmt.Sprintf("%s:%s:%s", isFileCacheEnabled, isFileCacheForRangeReadEnabled, isParallelDownloadsEnabled)
 }
 func createStorageHandle(newConfig *cfg.Config, userAgent string) (storageHandle storage.StorageHandle, err error) {
 	storageClientConfig := storageutil.StorageClientConfig{
@@ -187,7 +192,7 @@ func populateArgs(args []string) (
 
 	default:
 		err = fmt.Errorf(
-			"%s takes one or two arguments. Run `%s --help` for more info.",
+			"%s takes one or two arguments. Run `%s --help` for more info",
 			path.Base(os.Args[0]),
 			path.Base(os.Args[0]))
 
@@ -235,7 +240,7 @@ func isDynamicMount(bucketName string) bool {
 func runCLIApp(c *cli.Context) (err error) {
 	err = resolvePathForTheFlagsInContext(c)
 	if err != nil {
-		return fmt.Errorf("Resolving path: %w", err)
+		return fmt.Errorf("resolving path: %w", err)
 	}
 
 	flags, err := populateFlags(c)
@@ -314,6 +319,10 @@ func Mount(newConfig *cfg.Config, bucketName, mountPoint string) (err error) {
 		env := []string{
 			fmt.Sprintf("PATH=%s", os.Getenv("PATH")),
 		}
+
+		// Pass along ENABLE_GCSFUSE_VIPER_CONFIG environment variable, since we
+		// need to use Viper config if this environment variable is set.
+		env = append(env, fmt.Sprintf(EnableViperConfigEnvVariable+"=%s", os.Getenv(EnableViperConfigEnvVariable)))
 
 		// Pass along GOOGLE_APPLICATION_CREDENTIALS, since we document in
 		// mounting.md that it can be used for specifying a key file.
@@ -476,7 +485,7 @@ func run() (err error) {
 	return
 }
 
-func ExecuteLegacyMain() {
+var ExecuteLegacyMain = func() {
 	err := run()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
