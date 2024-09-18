@@ -243,15 +243,18 @@ function run_parallel_tests() {
 }
 
 function run_e2e_tests_for_flat_bucket() {
-  flat_bucket_name=$(sed -n 3p ~/details.txt)
-  echo "Flat Bucket name: "$flat_bucket_name
+  flat_bucket_name_non_parallel=$(sed -n 3p ~/details.txt)
+  echo "Flat Bucket name to run tests sequentially: "$flat_bucket_name_non_parallel
+
+  flat_bucket_name_parallel=$(sed -n 3p ~/details.txt)-parallel
+  echo "Flat Bucket name to run tests parallelly: "$flat_bucket_name_parallel
 
   echo "Running parallel tests..."
-  run_parallel_tests TEST_DIR_PARALLEL "$flat_bucket_name" &
+  run_parallel_tests TEST_DIR_PARALLEL "$flat_bucket_name_parallel" &
   parallel_tests_pid=$!
 
  echo "Running non parallel tests ..."
- run_non_parallel_tests TEST_DIR_NON_PARALLEL "$flat_bucket_name" &
+ run_non_parallel_tests TEST_DIR_NON_PARALLEL "flat_bucket_name_non_parallel" &
  non_parallel_tests_pid=$!
 
  # Wait for all tests to complete.
@@ -268,13 +271,16 @@ function run_e2e_tests_for_flat_bucket() {
 }
 
 function run_e2e_tests_for_hns_bucket(){
-  hns_bucket_name=$(sed -n 3p ~/details.txt)-hns
-  echo "HNS Bucket name: "$hns_bucket_name
+  hns_bucket_name_non_parallel=$(sed -n 3p ~/details.txt)-hns
+  echo "HNS Bucket name to run tests sequentially: "$hns_bucket_name_non_parallel
+
+  hns_bucket_name_parallel=$(sed -n 3p ~/details.txt)-hns-parallel
+  echo "HNS Bucket name to run tests parallelly: "$hns_bucket_name_parallel
 
    echo "Running tests for HNS bucket"
-   run_parallel_tests TEST_DIR_HNS_PARALLEL_GROUP "$hns_bucket_name" &
+   run_parallel_tests TEST_DIR_HNS_PARALLEL_GROUP "$hns_bucket_name_parallel" &
    parallel_tests_hns_group_pid=$!
-   run_non_parallel_tests TEST_DIR_HNS_NON_PARALLEL "$hns_bucket_name" &
+   run_non_parallel_tests TEST_DIR_HNS_NON_PARALLEL "$hns_bucket_name_non_parallel" &
    non_parallel_tests_hns_group_pid=$!
 
    # Wait for all tests to complete.
@@ -297,7 +303,7 @@ function gather_test_logs() {
   do
     log_file=${test_log_file}
     if [ -f "$log_file" ]; then
-      if [[ "$test_log_file" == *"hns" ]]; then  # Corrected pattern
+      if [[ "$test_log_file" == *"hns"* ]]; then
         output_file="~/logs-hns.txt"
       else
         output_file="~/logs.txt"
@@ -339,7 +345,7 @@ then
     echo "Test failures detected" &>> ~/logs-hns.txt
 else
     touch success-hns.txt
-    gsutil cp success-hns.txt gs://gcsfuse-release-packages/v$(sed -n 1p ~/details.txt)/$(sed -n 3p ~/details.txt)-hns/
+    gsutil cp success-hns.txt gs://gcsfuse-release-packages/v$(sed -n 1p ~/details.txt)/$(sed -n 3p ~/details.txt)/
 fi
-gsutil cp ~/logs-hns.txt gs://gcsfuse-release-packages/v$(sed -n 1p ~/details.txt)/$(sed -n 3p ~/details.txt)-hns/
+gsutil cp ~/logs-hns.txt gs://gcsfuse-release-packages/v$(sed -n 1p ~/details.txt)/$(sed -n 3p ~/details.txt)/
 '
