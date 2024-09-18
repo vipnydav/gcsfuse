@@ -44,6 +44,7 @@ set -x
 cd ~/
 cp /details.txt .
 touch logs.txt
+touch logs-hns.txt
 
 echo User: $USER &>> ~/logs.txt
 echo Current Working Directory: $(pwd)  &>> ~/logs.txt
@@ -155,20 +156,48 @@ TEST_DIR_PARALLEL=(
   "interrupt"
   "operations"
 )
+
 # These tests never become parallel as it is changing bucket permissions.
 TEST_DIR_NON_PARALLEL=(
   "readonly"
   "managed_folders"
   "readonly_creds"
 )
+
+TEST_DIR_HNS_PARALLEL_GROUP=(
+  "implicit_dir"
+  "rename_dir_limit"
+  "operations"
+  "local_file"
+  "gzip"
+  "interrupt"
+  "log_content"
+  "read_large_files"
+  "write_large_files"
+  "log_rotation"
+  "read_cache"
+  "list_large_dir"
+  "mounting"
+  "kernel_list_cache"
+  "concurrent_operations"
+)
+
+TEST_DIR_HNS_NON_PARALLEL=(
+  "readonly"
+  "readonly_creds"
+  "managed_folders"
+)
+
 # Create a temporary file to store the log file name.
 TEST_LOGS_FILE=$(mktemp)
+
 GO_TEST_SHORT_FLAG="-short"
 INTEGRATION_TEST_TIMEOUT=100m
-BUCKET_NAME=$(sed -n 3p ~/details.txt)
+
 function run_non_parallel_tests() {
   local exit_code=0
   local -n test_array=$1
+  local BUCKET_NAME=$2
   for test_dir_np in "${test_array[@]}"
   do
     test_path_non_parallel="./tools/integration_tests/$test_dir_np"
@@ -188,6 +217,7 @@ function run_non_parallel_tests() {
 function run_parallel_tests() {
   local exit_code=0
   local -n test_array=$1
+  local BUCKET_NAME=$2
   local pids=()
   for test_dir_p in "${test_array[@]}"
   do
@@ -211,6 +241,55 @@ function run_parallel_tests() {
   done
   return $exit_code
 }
+
+function run_e2e_tests_for_flat_bucket() {
+  flat_bucket_name=$(sed -n 3p ~/details.txt)
+  echo "Flat Bucket name: "$flat_bucket_name
+
+  echo "Running parallel tests..."
+  run_parallel_tests TEST_DIR_PARALLEL "$flat_bucket_name" &
+  parallel_tests_pid=$!
+
+ echo "Running non parallel tests ..."
+ run_non_parallel_tests TEST_DIR_NON_PARALLEL "$flat_bucket_name" &
+ non_parallel_tests_pid=$!
+
+ # Wait for all tests to complete.
+ wait $parallel_tests_pid
+ parallel_tests_exit_code=$?
+ wait $non_parallel_tests_pid
+ non_parallel_tests_exit_code=$?
+
+ if [ $non_parallel_tests_exit_code != 0 ] || [ $parallel_tests_exit_code != 0 ];
+ then
+   return 1
+ fi
+ return 0
+}
+
+function run_e2e_tests_for_hns_bucket(){
+  hns_bucket_name=$(sed -n 3p ~/details.txt)-hns
+  echo "HNS Bucket name: "$hns_bucket_name
+
+   echo "Running tests for HNS bucket"
+   run_parallel_tests TEST_DIR_HNS_PARALLEL_GROUP "$hns_bucket_name" &
+   parallel_tests_hns_group_pid=$!
+   run_non_parallel_tests TEST_DIR_HNS_NON_PARALLEL "$hns_bucket_name" &
+   non_parallel_tests_hns_group_pid=$!
+
+   # Wait for all tests to complete.
+   wait $parallel_tests_hns_group_pid
+   parallel_tests_hns_group_exit_code=$?
+   wait $non_parallel_tests_hns_group_pid
+   non_parallel_tests_hns_group_exit_code=$?
+
+   if [ $parallel_tests_hns_group_exit_code != 0 ] || [ $non_parallel_tests_hns_group_exit_code != 0 ];
+   then
+    return 1
+   fi
+   return 0
+}
+
 function gather_test_logs() {
   readarray -t test_logs_array < "$TEST_LOGS_FILE"
   rm "$TEST_LOGS_FILE"
@@ -218,20 +297,35 @@ function gather_test_logs() {
   do
     log_file=${test_log_file}
     if [ -f "$log_file" ]; then
-      echo "=== Log for ${test_log_file} ===" >> ~/logs.txt
-      cat "$log_file" >> ~/logs.txt
-      echo "=========================================" >> ~/logs.txt
+      if [[ "$test_log_file" == *"hns" ]]; then  # Corrected pattern
+        output_file="~/logs-hns.txt"
+      else
+        output_file="~/logs.txt"
+      fi
+
+      echo "=== Log for ${test_log_file} ===" >> "$output_file"
+      cat "$log_file" >> "$output_file"
+      echo "=========================================" >> "$output_file"
     fi
   done
 }
-echo "Running parallel tests..."
-run_parallel_tests TEST_DIR_PARALLEL
-parallel_tests_exit_code=$?
-echo "Running non parallel tests ..."
-run_non_parallel_tests TEST_DIR_NON_PARALLEL
-non_parallel_tests_exit_code=$?
+
+#run integration tests
+run_e2e_tests_for_hns_bucket &
+e2e_tests_hns_bucket_pid=$!
+
+run_e2e_tests_for_flat_bucket &
+e2e_tests_flat_bucket_pid=$!
+
+wait $e2e_tests_flat_bucket_pid
+e2e_tests_flat_bucket_status=$?
+
+~.wait $e2e_tests_hns_bucket_pid
+e2e_tests_hns_bucket_status=$?
+
 gather_test_logs
-if [ $parallel_tests_exit_code != 0 ] || [ $non_parallel_tests_exit_code != 0 ]
+
+if [ $e2e_tests_flat_bucket_status != 0 ]
 then
     echo "Test failures detected" &>> ~/logs.txt
 else
@@ -239,32 +333,13 @@ else
     gsutil cp success.txt gs://gcsfuse-release-packages/v$(sed -n 1p ~/details.txt)/$(sed -n 3p ~/details.txt)/
 fi
 gsutil cp ~/logs.txt gs://gcsfuse-release-packages/v$(sed -n 1p ~/details.txt)/$(sed -n 3p ~/details.txt)/
-'
 
-##run tests with testbucket flag
-#set +e
-## TODO: Running both tests in parallel leads to more test failures. Since Louhi runs on a smaller machine, this does not significantly reduce execution time.
-## We can include this task as part of the parallel e2e test project in the Louhi pipeline.
-#
-## Run tests on HNS bucket
-#GODEBUG=asyncpreemptoff=1 CGO_ENABLED=0 go test ./tools/integration_tests/... -p 1 -short --integrationTest -v --testbucket=$(sed -n 3p ~/details.txt)-hns --timeout=60m &>> ~/logs-hns.txt
-#if [ $? -ne 0 ];
-#then
-#    echo "Test failures detected" &>> ~/logs-hns.txt
-#else
-#    touch success-hns.txt
-#    gsutil cp success-hns.txt gs://gcsfuse-release-packages/v$(sed -n 1p ~/details.txt)/$(sed -n 3p ~/details.txt)-hns/
-#fi
-#gsutil cp ~/logs-hns.txt gs://gcsfuse-release-packages/v$(sed -n 1p ~/details.txt)/$(sed -n 3p ~/details.txt)-hns/
-#
-## Run tests on FLAT bucket
-#GODEBUG=asyncpreemptoff=1 CGO_ENABLED=0 go test ./tools/integration_tests/... -p 1 -short --integrationTest -v --testbucket=$(sed -n 3p ~/details.txt) --timeout=60m &>> ~/logs.txt
-#if [ $? -ne 0 ];
-#then
-#    echo "Test failures detected" &>> ~/logs.txt
-#else
-#    touch success.txt
-#    gsutil cp success.txt gs://gcsfuse-release-packages/v$(sed -n 1p ~/details.txt)/$(sed -n 3p ~/details.txt)/
-#fi
-#gsutil cp ~/logs.txt gs://gcsfuse-release-packages/v$(sed -n 1p ~/details.txt)/$(sed -n 3p ~/details.txt)/
-#'
+if [ e2e_tests_hns_bucket_status != 0 ];
+then
+    echo "Test failures detected" &>> ~/logs-hns.txt
+else
+    touch success-hns.txt
+    gsutil cp success-hns.txt gs://gcsfuse-release-packages/v$(sed -n 1p ~/details.txt)/$(sed -n 3p ~/details.txt)-hns/
+fi
+gsutil cp ~/logs-hns.txt gs://gcsfuse-release-packages/v$(sed -n 1p ~/details.txt)/$(sed -n 3p ~/details.txt)-hns/
+'
