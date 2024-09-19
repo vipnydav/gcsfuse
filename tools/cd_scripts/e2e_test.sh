@@ -142,7 +142,7 @@ git checkout $(sed -n 2p ~/details.txt) |& tee -a ~/logs.txt
 set +e
 # Test directory arrays
 TEST_DIR_PARALLEL=(
-  "local_file"
+ "local_file"
   "log_rotation"
   "mounting"
   "read_cache"
@@ -155,6 +155,9 @@ TEST_DIR_PARALLEL=(
   "implicit_dir"
   "interrupt"
   "operations"
+  "log_content"
+  "kernel_list_cache"
+  "concurrent_operations"
 )
 
 # These tests never become parallel as it is changing bucket permissions.
