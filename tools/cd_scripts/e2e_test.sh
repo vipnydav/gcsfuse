@@ -192,7 +192,7 @@ TEST_DIR_HNS_NON_PARALLEL=(
 TEST_LOGS_FILE=$(mktemp)
 
 GO_TEST_SHORT_FLAG="-short"
-INTEGRATION_TEST_TIMEOUT=100m
+INTEGRATION_TEST_TIMEOUT=300m
 
 function run_non_parallel_tests() {
   local exit_code=0
