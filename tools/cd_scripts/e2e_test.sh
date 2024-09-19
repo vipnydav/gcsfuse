@@ -304,9 +304,9 @@ function gather_test_logs() {
     log_file=${test_log_file}
     if [ -f "$log_file" ]; then
       if [[ "$test_log_file" == *"hns"* ]]; then
-        output_file="~/logs-hns.txt"
+        output_file="$HOME/logs-hns.txt"
       else
-        output_file="~/logs.txt"
+        output_file="$HOME/logs.txt"
       fi
 
       echo "=== Log for ${test_log_file} ===" >> "$output_file"
