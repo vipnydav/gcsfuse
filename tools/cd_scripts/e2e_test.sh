@@ -254,7 +254,7 @@ function run_e2e_tests_for_flat_bucket() {
   parallel_tests_pid=$!
 
  echo "Running non parallel tests ..."
- run_non_parallel_tests TEST_DIR_NON_PARALLEL "flat_bucket_name_non_parallel" &
+ run_non_parallel_tests TEST_DIR_NON_PARALLEL "$flat_bucket_name_non_parallel" &
  non_parallel_tests_pid=$!
 
  # Wait for all tests to complete.
