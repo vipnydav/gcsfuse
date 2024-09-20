@@ -343,7 +343,7 @@ else
 fi
 gsutil cp ~/logs.txt gs://gcsfuse-release-packages/v$(sed -n 1p ~/details.txt)/$(sed -n 3p ~/details.txt)/
 
-if [ e2e_tests_hns_bucket_status != 0 ];
+if [ $e2e_tests_hns_bucket_status != 0 ];
 then
     echo "Test failures detected" &>> ~/logs-hns.txt
 else
