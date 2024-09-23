@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# The directory name is generated with a random component to avoid collisions.
+temp_dir=$(mktemp -d)
+cd $temp_dir
 # Here $1 refers to the testBucket argument
 echo "This is from directory fileInImplicitDir1 file implicitDirectory" > fileInImplicitDir1
 # bucket/implicitDirectory/fileInImplicitDir1
