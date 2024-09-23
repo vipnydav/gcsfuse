@@ -14,7 +14,7 @@
 
 # The directory name is generated with a random component to avoid collisions.
 temp_dir=$(mktemp -d)
-cd $temp_dir
+cd "$temp_dir"
 # Here $1 refers to the testBucket argument
 echo "This is from directory fileInImplicitDir1 file implicitDirectory" > fileInImplicitDir1
 # bucket/implicitDirectory/fileInImplicitDir1
@@ -22,3 +22,5 @@ gcloud storage cp fileInImplicitDir1 gs://$1/implicitDirectory/
 echo "This is from directory implicitDirectory/implicitSubDirectory file fileInImplicitDir2" > fileInImplicitDir2
 # bucket/implicitDirectory/implicitSubDirectory/fileInImplicitDir2
 gcloud storage cp fileInImplicitDir2 gs://$1/implicitDirectory/implicitSubDirectory/
+cd ..
+rm -rf "$temp_dir"
