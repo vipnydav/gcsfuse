@@ -267,3 +267,25 @@ func UploadGcsObject(ctx context.Context, client *storage.Client, localPath, buc
 	}
 	return nil
 }
+
+// Get the object size of the GCS object.
+func GetGcsObjectSize(ctx context.Context, client *storage.Client, object string) (int64, error) {
+	attrs, err := StatObject(ctx, client, object)
+	if err != nil {
+		return -1, err
+	}
+	return attrs.Size, nil
+}
+
+// Clears cache-control attributes on given GCS object.
+// Fails if the object doesn't exist or permission to modify object's metadata is not
+// available.
+func ClearCacheControlOnGcsObject(ctx context.Context, client *storage.Client, object string) error {
+	attrs, err := StatObject(ctx, client, object)
+	if err != nil {
+		return err
+	}
+	attrs.CacheControl = ""
+
+	return nil
+}

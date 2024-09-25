@@ -57,9 +57,10 @@ const (
 var (
 	gcsObjectsToBeDeletedEventually []string
 	storageClient                   *storage.Client
+	ctx                             context.Context
 )
 
-func setup_testdata(m *testing.M, ctx context.Context) error {
+func setup_testdata(m *testing.M) error {
 	fmds := []struct {
 		filename                    string
 		filesize                    int
@@ -154,11 +155,10 @@ func setup_testdata(m *testing.M, ctx context.Context) error {
 			return err
 		}
 
-		gcsObjectPath := path.Join(setup.TestBucket(), objectPrefixPath)
-		gcsObjectsToBeDeletedEventually = append(gcsObjectsToBeDeletedEventually, gcsObjectPath)
+		gcsObjectsToBeDeletedEventually = append(gcsObjectsToBeDeletedEventually, objectPrefixPath)
 
 		if !fmd.keepCacheControlNoTransform {
-			err = operations.ClearCacheControlOnGcsObject(gcsObjectPath)
+			err = client.ClearCacheControlOnGcsObject(ctx, storageClient, objectPrefixPath)
 			if err != nil {
 				return err
 			}
@@ -168,9 +168,9 @@ func setup_testdata(m *testing.M, ctx context.Context) error {
 	return nil
 }
 
-func destroy_testdata(m *testing.M) error {
+func destroy_testdata(m *testing.M, storageClient *storage.Client) error {
 	for _, gcsObjectPath := range gcsObjectsToBeDeletedEventually {
-		err := operations.DeleteGcsObject(gcsObjectPath)
+		err := client.DeleteObjectOnGCS(ctx, storageClient, gcsObjectPath)
 		if err != nil {
 			return fmt.Errorf("Failed to delete gcs object gs://%s", gcsObjectPath)
 		}
@@ -194,7 +194,7 @@ func TestMain(m *testing.M) {
 	setup.ParseSetUpFlags()
 
 	var err error
-	ctx := context.Background()
+	ctx = context.Background()
 	if storageClient, err = client.CreateStorageClient(ctx); err != nil {
 		log.Fatalf("Error creating storage client: %v\n", err)
 	}
@@ -218,13 +218,13 @@ func TestMain(m *testing.M) {
 		log.Fatal("Please pass the name of bucket mounted at mountedDirectory to --testBucket flag.")
 	}
 
-	err = setup_testdata(m, ctx)
+	err = setup_testdata(m)
 	if err != nil {
 		log.Fatalf("Failed to setup test data: %v", err)
 	}
 
 	defer func() {
-		err := destroy_testdata(m)
+		err := destroy_testdata(m, storageClient)
 		if err != nil {
 			log.Printf("Failed to destoy gzip test data: %v", err)
 		}
