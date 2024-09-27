@@ -26,11 +26,14 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"context"
 
 	"cloud.google.com/go/compute/metadata"
 	"github.com/googlecloudplatform/gcsfuse/v2/tools/integration_tests/util/mounting/static_mounting"
 	"github.com/googlecloudplatform/gcsfuse/v2/tools/integration_tests/util/operations"
 	"github.com/googlecloudplatform/gcsfuse/v2/tools/integration_tests/util/setup"
+	secretmanager "cloud.google.com/go/secretmanager/apiv1"
+	"cloud.google.com/go/secretmanager/apiv1/secretmanagerpb"
 )
 
 const NameOfServiceAccount = "creds-integration-tests"
@@ -57,8 +60,18 @@ func CreateCredentials() (serviceAccount, localKeyFilePath string) {
 	localKeyFilePath = path.Join(os.Getenv("HOME"), "creds.json")
 
 	// Download credentials
-	gcloudSecretAccessCmd := fmt.Sprintf("secrets versions access latest --secret %s", CredentialsSecretName)
-	creds, err := operations.ExecuteGcloudCommandf(gcloudSecretAccessCmd)
+	// Download credentials
+	ctx := context.Background()
+	client, err := secretmanager.NewClient(ctx)
+	if err != nil {
+		setup.LogAndExit(fmt.Sprintf("failed to create secretmanager client: %w", err))
+	}
+	defer client.Close()
+
+	req := &secretmanagerpb.AccessSecretVersionRequest{
+		Name: CredentialsSecretName,
+	}
+	creds, err := client.AccessSecretVersion(ctx, req)
 	if err != nil {
 		setup.LogAndExit(fmt.Sprintf("Error while fetching key file %v", err))
 	}
@@ -68,7 +81,7 @@ func CreateCredentials() (serviceAccount, localKeyFilePath string) {
 	if err != nil {
 		setup.LogAndExit(fmt.Sprintf("Error while creating credentials file %v", err))
 	}
-	_, err = io.WriteString(file, string(creds))
+	_, err = io.WriteString(file, string(creds.Payload.Data))
 	if err != nil {
 		setup.LogAndExit(fmt.Sprintf("Error while writing credentials to local file %v", err))
 	}
