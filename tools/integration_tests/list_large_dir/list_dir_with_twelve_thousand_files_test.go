@@ -150,6 +150,7 @@ func createHundredExplicitDir(dirPath string, t *testing.T) {
 
 // Test with a bucket with twelve thousand files.
 func TestListDirectoryWithTwelveThousandFiles(t *testing.T) {
+	setup.SetupTestDirectory(DirectoryForListLargeFileTests)
 	createTwelveThousandFilesAndUploadOnTestBucket(t)
 	testDirPath := path.Join(setup.MntDir(), DirectoryForListLargeFileTests)
 	testDirPathOnBucket := path.Join(setup.TestBucket(), DirectoryForListLargeFileTests)
@@ -159,7 +160,7 @@ func TestListDirectoryWithTwelveThousandFiles(t *testing.T) {
 	startTime := time.Now()
 	objs, err := os.ReadDir(dirPath)
 	if err != nil {
-		t.Errorf("Error in listing directory.")
+		t.Errorf("Error in listing directory: %v", err)
 	}
 	endTime := time.Now()
 	validateDirectoryWithTwelveThousandFiles(objs, t)
@@ -168,7 +169,7 @@ func TestListDirectoryWithTwelveThousandFiles(t *testing.T) {
 	startTime = time.Now()
 	objs, err = os.ReadDir(dirPath)
 	if err != nil {
-		t.Errorf("Error in listing directory.")
+		t.Errorf("Error in listing directory: %v", err)
 	}
 	endTime = time.Now()
 	validateDirectoryWithTwelveThousandFiles(objs, t)
