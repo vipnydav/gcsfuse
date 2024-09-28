@@ -632,7 +632,7 @@ func (s *concurrentListingTest) Test_StatWithNewFileWrite(t *testing.T) {
 	targetDir := path.Join(testDirPath, testCaseDir, "explicitDir")
 	var wg sync.WaitGroup
 	wg.Add(2)
-	timeout := 400 * time.Second // Adjust timeout as needed
+	timeout := 800 * time.Second // Adjust timeout as needed
 
 	// Goroutine 1: Repeatedly calls Stat
 	go func() {

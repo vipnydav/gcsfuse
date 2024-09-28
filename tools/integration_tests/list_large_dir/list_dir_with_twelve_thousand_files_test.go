@@ -150,7 +150,6 @@ func createHundredExplicitDir(dirPath string, t *testing.T) {
 
 // Test with a bucket with twelve thousand files.
 func TestListDirectoryWithTwelveThousandFiles(t *testing.T) {
-	setup.SetupTestDirectory(DirectoryForListLargeFileTests)
 	createTwelveThousandFilesAndUploadOnTestBucket(t)
 	testDirPath := path.Join(setup.MntDir(), DirectoryForListLargeFileTests)
 	testDirPathOnBucket := path.Join(setup.TestBucket(), DirectoryForListLargeFileTests)
