@@ -632,12 +632,12 @@ func (s *concurrentListingTest) Test_StatWithNewFileWrite(t *testing.T) {
 	targetDir := path.Join(testDirPath, testCaseDir, "explicitDir")
 	var wg sync.WaitGroup
 	wg.Add(2)
-	timeout := 800 * time.Second // Adjust timeout as needed
+	timeout := 400 * time.Second // Adjust timeout as needed
 
 	// Goroutine 1: Repeatedly calls Stat
 	go func() {
 		defer wg.Done()
-		for i := 0; i < iterationsForLightOperations; i++ {
+		for i := 0; i < 500; i++ {
 			_, err := os.Stat(targetDir)
 
 			assert.NoError(t, err)
@@ -647,7 +647,7 @@ func (s *concurrentListingTest) Test_StatWithNewFileWrite(t *testing.T) {
 	// Goroutine 2: Repeatedly create a file.
 	go func() {
 		defer wg.Done()
-		for i := 0; i < iterationsForLightOperations; i++ {
+		for i := 0; i < 500; i++ {
 			// Create file
 			filePath := path.Join(targetDir, fmt.Sprintf("tmp_file_%d.txt", i))
 			err := os.WriteFile(filePath, []byte("Hello, world!"), setup.FilePermission_0600)
