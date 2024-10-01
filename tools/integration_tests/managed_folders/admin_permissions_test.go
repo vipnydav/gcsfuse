@@ -20,12 +20,14 @@
 package managed_folders
 
 import (
+	"context"
 	"log"
 	"os"
 	"path"
 	"testing"
 	"time"
 
+	"github.com/googlecloudplatform/gcsfuse/v2/tools/integration_tests/util/client"
 	"github.com/googlecloudplatform/gcsfuse/v2/tools/integration_tests/util/creds_tests"
 	"github.com/googlecloudplatform/gcsfuse/v2/tools/integration_tests/util/operations"
 	"github.com/googlecloudplatform/gcsfuse/v2/tools/integration_tests/util/setup"
@@ -56,6 +58,15 @@ type managedFoldersAdminPermission struct {
 }
 
 func (s *managedFoldersAdminPermission) Setup(t *testing.T) {
+	var err error
+	ctx = context.Background()
+	storageClient, err = client.CreateStorageClient(ctx)
+	if err != nil {
+		log.Printf("Error creating storage client: %v\n", err)
+		os.Exit(1)
+	}
+	defer storageClient.Close()
+
 	createDirectoryStructureForNonEmptyManagedFolders(ctx, storageClient, t)
 	if s.managedFoldersPermission != "nil" {
 		providePermissionToManagedFolder(bucket, path.Join(testDir, ManagedFolder1), serviceAccount, s.managedFoldersPermission, t)
@@ -200,7 +211,7 @@ func TestManagedFolders_FolderAdminPermission(t *testing.T) {
 
 	// Fetch credentials and apply permission on bucket.
 	serviceAccount, localKeyFilePath = creds_tests.CreateCredentials()
-	creds_tests.ApplyPermissionToServiceAccount(serviceAccount, AdminPermission, setup.TestBucket())
+	creds_tests.ApplyPermissionToServiceAccount(ctx, storageClient, serviceAccount, AdminPermission, setup.TestBucket())
 
 	flags := []string{"--implicit-dirs", "--key-file=" + localKeyFilePath, "--rename-dir-limit=5", "--stat-cache-ttl=0"}
 	if hnsFlagSet, err := setup.AddHNSFlagForHierarchicalBucket(ctx, storageClient); err == nil {
@@ -220,9 +231,9 @@ func TestManagedFolders_FolderAdminPermission(t *testing.T) {
 		bucket, testDir = setup.GetBucketAndObjectBasedOnTypeOfMount(TestDirForManagedFolderTest)
 		ts.bucketPermission = permissions[i][0]
 		if ts.bucketPermission == ViewPermission {
-			creds_tests.RevokePermission(serviceAccount, AdminPermission, setup.TestBucket())
-			creds_tests.ApplyPermissionToServiceAccount(serviceAccount, ViewPermission, setup.TestBucket())
-			defer creds_tests.RevokePermission(serviceAccount, ViewPermission, setup.TestBucket())
+			creds_tests.RevokePermission(ctx, storageClient, serviceAccount, AdminPermission, setup.TestBucket())
+			creds_tests.ApplyPermissionToServiceAccount(ctx, storageClient, serviceAccount, ViewPermission, setup.TestBucket())
+			defer creds_tests.RevokePermission(ctx, storageClient, serviceAccount, ViewPermission, setup.TestBucket())
 		}
 		ts.managedFoldersPermission = permissions[i][1]
 
