@@ -104,7 +104,7 @@ func (s *jobChunkTest) TestJobChunkSizeForSingleFileReads(t *testing.T) {
 }
 
 func (s *jobChunkTest) TestJobChunkSizeForMultipleFileReads(t *testing.T) {
-	var fileSize int64 = 12 * util.MiB
+	var fileSize int64 = 24 * util.MiB
 	var testFileNames [2]string
 	var expectedOutcome [2]*Expected
 	testFileNames[0] = setupFileInTestDir(s.ctx, s.storageClient, testDirName, fileSize, t)
@@ -177,7 +177,7 @@ func TestJobChunkTest(t *testing.T) {
 	var cacheSizeMB int64 = 48
 
 	// Tests to validate chunk size when read cache parallel downloads are disabled.
-	var chunkSizeForReadCache int64 = 6
+	var chunkSizeForReadCache int64 = 8
 	ts.flags = []string{"--config-file=" + createConfigFile(&gcsfuseTestFlags{cacheSize: cacheSizeMB, cacheFileForRangeRead: true, fileName: configFileName, enableParallelDownloads: false, enableODirect: false, cacheDirPath: getDefaultCacheDirPathForTests()})}
 	ts.chunkSize = chunkSizeForReadCache * util.MiB
 	log.Printf("Running tests with flags: %s", ts.flags)
