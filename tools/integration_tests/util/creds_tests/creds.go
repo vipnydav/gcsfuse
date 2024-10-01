@@ -17,6 +17,7 @@
 package creds_tests
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -26,14 +27,15 @@ import (
 	"strings"
 	"testing"
 	"time"
-	"context"
 
 	"cloud.google.com/go/compute/metadata"
+	"cloud.google.com/go/iam"
+	secretmanager "cloud.google.com/go/secretmanager/apiv1"
+	"cloud.google.com/go/secretmanager/apiv1/secretmanagerpb"
+	"cloud.google.com/go/storage"
 	"github.com/googlecloudplatform/gcsfuse/v2/tools/integration_tests/util/mounting/static_mounting"
 	"github.com/googlecloudplatform/gcsfuse/v2/tools/integration_tests/util/operations"
 	"github.com/googlecloudplatform/gcsfuse/v2/tools/integration_tests/util/setup"
-	secretmanager "cloud.google.com/go/secretmanager/apiv1"
-	"cloud.google.com/go/secretmanager/apiv1/secretmanagerpb"
 )
 
 const NameOfServiceAccount = "creds-integration-tests"
@@ -60,7 +62,6 @@ func CreateCredentials() (serviceAccount, localKeyFilePath string) {
 	localKeyFilePath = path.Join(os.Getenv("HOME"), "creds.json")
 
 	// Download credentials
-	// Download credentials
 	ctx := context.Background()
 	client, err := secretmanager.NewClient(ctx)
 	if err != nil {
@@ -69,7 +70,7 @@ func CreateCredentials() (serviceAccount, localKeyFilePath string) {
 	defer client.Close()
 
 	req := &secretmanagerpb.AccessSecretVersionRequest{
-		Name: fmt.Sprintf("projects/%s/secrets/%s/versions/latest",id,CredentialsSecretName),
+		Name: fmt.Sprintf("projects/%s/secrets/%s/versions/latest", id, CredentialsSecretName),
 	}
 	creds, err := client.AccessSecretVersion(ctx, req)
 	if err != nil {
@@ -90,30 +91,52 @@ func CreateCredentials() (serviceAccount, localKeyFilePath string) {
 	return
 }
 
-func ApplyPermissionToServiceAccount(serviceAccount, permission, bucket string) {
+func ApplyPermissionToServiceAccount(ctx context.Context, storageClient *storage.Client, serviceAccount, permission, bucket string) {
 	// Provide permission to service account for testing.
-	_, err := operations.ExecuteGcloudCommandf(fmt.Sprintf("storage buckets add-iam-policy-binding gs://%s --member=serviceAccount:%s --role=roles/storage.%s", bucket, serviceAccount, permission))
+	//_, err := operations.ExecuteGcloudCommandf(fmt.Sprintf("storage buckets add-iam-policy-binding gs://%s --member=serviceAccount:%s --role=roles/storage.%s", bucket, serviceAccount, permission))
+	bucketHandle := storageClient.Bucket(bucket)
+	policy, err := bucketHandle.IAM().Policy(ctx)
 	if err != nil {
-		setup.LogAndExit(fmt.Sprintf("Error while setting permissions to SA: %v", err))
+		setup.LogAndExit(fmt.Sprintf("Error fetching: Bucket(%q).IAM().Policy: %w", bucket, err))
+	}
+	// Other valid prefixes are "serviceAccount:", "user:"
+	// See the documentation for more values.
+	// https://cloud.google.com/storage/docs/access-control/iam
+	identity := fmt.Sprintf("serviceAccount:%s", serviceAccount)
+	role := iam.RoleName(fmt.Sprintf("roles/storage.%s", permission))
+
+	policy.Add(identity, role)
+	if err := bucketHandle.IAM().SetPolicy(ctx, policy); err != nil {
+		setup.LogAndExit(fmt.Sprintf("Error applying permission to service account: Bucket(%q).IAM().SetPolicy: %w", bucket, err))
 	}
 	// Waiting for 2 minutes as it usually takes within 2 minutes for policy
 	// changes to propagate: https://cloud.google.com/iam/docs/access-change-propagation
 	time.Sleep(120 * time.Second)
 }
 
-func RevokePermission(serviceAccount, permission, bucket string) {
+func RevokePermission(ctx context.Context, storageClient *storage.Client, serviceAccount, permission, bucket string) {
 	// Revoke the permission to service account after testing.
-	cmd := fmt.Sprintf("storage buckets remove-iam-policy-binding gs://%s --member=serviceAccount:%s --role=roles/storage.%s", bucket, serviceAccount, permission)
-	_, err := operations.ExecuteGcloudCommandf(cmd)
+	bucketHandle := storageClient.Bucket(bucket)
+	policy, err := bucketHandle.IAM().Policy(ctx)
 	if err != nil {
-		setup.LogAndExit(fmt.Sprintf("Error in unsetting permissions to SA: %v", err))
+		setup.LogAndExit(fmt.Sprintf("Error fetching: Bucket(%q).IAM().Policy: %w", bucket, err))
+	}
+	// Other valid prefixes are "serviceAccount:", "user:"
+	// See the documentation for more values.
+	// https://cloud.google.com/storage/docs/access-control/iam
+	identity := fmt.Sprintf("serviceAccount:%s", serviceAccount)
+	role := iam.RoleName(fmt.Sprintf("roles/storage.%s", permission))
+
+	policy.Remove(identity, role)
+	if err := bucketHandle.IAM().SetPolicy(ctx, policy); err != nil {
+		setup.LogAndExit(fmt.Sprintf("Error applying permission to service account: Bucket(%q).IAM().SetPolicy: %w", bucket, err))
 	}
 }
 
-func RunTestsForKeyFileAndGoogleApplicationCredentialsEnvVarSet(testFlagSet [][]string, permission string, m *testing.M) (successCode int) {
+func RunTestsForKeyFileAndGoogleApplicationCredentialsEnvVarSet(ctx context.Context, storageClient *storage.Client, testFlagSet [][]string, permission string, m *testing.M) (successCode int) {
 	serviceAccount, localKeyFilePath := CreateCredentials()
-	ApplyPermissionToServiceAccount(serviceAccount, permission, setup.TestBucket())
-	defer RevokePermission(serviceAccount, permission, setup.TestBucket())
+	ApplyPermissionToServiceAccount(ctx, storageClient, serviceAccount, permission, setup.TestBucket())
+	defer RevokePermission(ctx, storageClient, serviceAccount, permission, setup.TestBucket())
 
 	// Without –key-file flag and GOOGLE_APPLICATION_CREDENTIALS
 	// This case will not get covered as gcsfuse internally authenticates from a metadata server on GCE VM.
