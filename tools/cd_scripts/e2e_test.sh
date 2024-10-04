@@ -142,13 +142,12 @@ git checkout $(sed -n 2p ~/details.txt) |& tee -a ~/logs.txt
 set +e
 # Test directory arrays
 TEST_DIR_PARALLEL=(
- "local_file"
+  "local_file"
   "log_rotation"
   "mounting"
   "read_cache"
   "gzip"
   "write_large_files"
-  "list_large_dir"
   "rename_dir_limit"
   "read_large_files"
   "explicit_dir"
@@ -165,6 +164,7 @@ TEST_DIR_NON_PARALLEL=(
   "readonly"
   "managed_folders"
   "readonly_creds"
+  "list_large_dir"
 )
 
 TEST_DIR_HNS_PARALLEL_GROUP=(
@@ -179,7 +179,6 @@ TEST_DIR_HNS_PARALLEL_GROUP=(
   "write_large_files"
   "log_rotation"
   "read_cache"
-  "list_large_dir"
   "mounting"
   "kernel_list_cache"
   "concurrent_operations"
@@ -189,6 +188,7 @@ TEST_DIR_HNS_NON_PARALLEL=(
   "readonly"
   "readonly_creds"
   "managed_folders"
+  "list_large_dir"
 )
 
 # Create a temporary file to store the log file name.
