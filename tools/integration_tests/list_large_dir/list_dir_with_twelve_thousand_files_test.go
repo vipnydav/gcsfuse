@@ -152,7 +152,7 @@ func createHundredExplicitDir(dirPath string, t *testing.T) {
 func TestListDirectoryWithTwelveThousandFiles(t *testing.T) {
 	createTwelveThousandFilesAndUploadOnTestBucket(t)
 	testDirPath := path.Join(setup.MntDir(), DirectoryForListLargeFileTests)
-	testDirPathOnBucket := path.Join(setup.TestBucket(), DirectoryForListLargeFileTests)
+	//testDirPathOnBucket := path.Join(setup.TestBucket(), DirectoryForListLargeFileTests)
 	dirPath := path.Join(testDirPath, DirectoryWithTwelveThousandFiles)
 
 	// List Directory first time
@@ -180,14 +180,14 @@ func TestListDirectoryWithTwelveThousandFiles(t *testing.T) {
 	// will be retrieved from the kernel cache.
 	assert.Less(t, 2*secondListTime, firstListTime)
 	// Clear the data after testing.
-	setup.RunScriptForTestData("testdata/delete_objects.sh", testDirPathOnBucket)
+	//setup.RunScriptForTestData("testdata/delete_objects.sh", testDirPathOnBucket)
 }
 
 // Test with a bucket with twelve thousand files and hundred explicit directories.
 func TestListDirectoryWithTwelveThousandFilesAndHundredExplicitDir(t *testing.T) {
 	createTwelveThousandFilesAndUploadOnTestBucket(t)
 	testDirPath := path.Join(setup.MntDir(), DirectoryForListLargeFileTests)
-	testDirPathOnBucket := path.Join(setup.TestBucket(), DirectoryForListLargeFileTests)
+	//testDirPathOnBucket := path.Join(setup.TestBucket(), DirectoryForListLargeFileTests)
 	dirPath := path.Join(testDirPath, DirectoryWithTwelveThousandFiles)
 	// Create hundred explicit directories.
 	createHundredExplicitDir(dirPath, t)
@@ -217,7 +217,7 @@ func TestListDirectoryWithTwelveThousandFilesAndHundredExplicitDir(t *testing.T)
 	// will be retrieved from the kernel cache.
 	assert.Less(t, 2*secondListTime, firstListTime)
 	// Clear the bucket after testing.
-	setup.RunScriptForTestData("testdata/delete_objects.sh", testDirPathOnBucket)
+	//setup.RunScriptForTestData("testdata/delete_objects.sh", testDirPathOnBucket)
 }
 
 // Test with a bucket with twelve thousand files, hundred explicit directories, and hundred implicit directories.
@@ -256,5 +256,5 @@ func TestListDirectoryWithTwelveThousandFilesAndHundredExplicitDirAndHundredImpl
 	// will be retrieved from the kernel cache.
 	assert.Less(t, 2*secondListTime, firstListTime)
 	// Clear the bucket after testing.
-	setup.RunScriptForTestData("testdata/delete_objects.sh", testDirPathOnBucket)
+	//setup.RunScriptForTestData("testdata/delete_objects.sh", testDirPathOnBucket)
 }

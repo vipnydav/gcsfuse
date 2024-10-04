@@ -142,18 +142,53 @@ git checkout $(sed -n 2p ~/details.txt) |& tee -a ~/logs.txt
 set +e
 # Test directory arrays
 TEST_DIR_PARALLEL=(
+ "local_file"
+  "log_rotation"
+  "mounting"
+  "read_cache"
+  "gzip"
+  "write_large_files"
   "list_large_dir"
+  "rename_dir_limit"
+  "read_large_files"
+  "explicit_dir"
+  "implicit_dir"
+  "interrupt"
+  "operations"
+  "log_content"
+  "kernel_list_cache"
+  "concurrent_operations"
 )
 
 # These tests never become parallel as it is changing bucket permissions.
 TEST_DIR_NON_PARALLEL=(
+  "readonly"
+  "managed_folders"
+  "readonly_creds"
 )
 
 TEST_DIR_HNS_PARALLEL_GROUP=(
+  "implicit_dir"
+  "rename_dir_limit"
+  "operations"
+  "local_file"
+  "gzip"
+  "interrupt"
+  "log_content"
+  "read_large_files"
+  "write_large_files"
+  "log_rotation"
+  "read_cache"
   "list_large_dir"
+  "mounting"
+  "kernel_list_cache"
+  "concurrent_operations"
 )
 
 TEST_DIR_HNS_NON_PARALLEL=(
+  "readonly"
+  "readonly_creds"
+  "managed_folders"
 )
 
 # Create a temporary file to store the log file name.
