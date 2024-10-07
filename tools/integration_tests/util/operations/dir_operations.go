@@ -18,6 +18,7 @@ package operations
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -26,6 +27,11 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"cloud.google.com/go/storage"
+	control "cloud.google.com/go/storage/control/apiv2"
+	"cloud.google.com/go/storage/control/apiv2/controlpb"
+	"golang.org/x/net/context"
 )
 
 const FilePermission_0400 = 0400
@@ -157,33 +163,48 @@ func DirSizeMiB(dirPath string) (dirSizeMB int64, err error) {
 		return nil
 	})
 	dirSizeMB = totalSize / MiB
-
 	return dirSizeMB, err
 }
 
-func DeleteManagedFoldersInBucket(managedFolderPath, bucket string) {
-	gcloudDeleteManagedFolderCmd := fmt.Sprintf("alpha storage rm -r gs://%s/%s", bucket, managedFolderPath)
-
-	_, err := ExecuteGcloudCommandf(gcloudDeleteManagedFolderCmd)
-	if err != nil && !strings.Contains(err.Error(), "The following URLs matched no objects or files") {
+func DeleteManagedFoldersInBucket(ctx context.Context, client *control.StorageControlClient, managedFolderPath, bucket string) {
+	//gcloudDeleteManagedFolderCmd := fmt.Sprintf("alpha storage rm -r gs://%s/%s", bucket, managedFolderPath)
+	folderPath := fmt.Sprintf("projects/_/buckets/%v/managedFolders/%v/", bucket, managedFolderPath)
+	req := &controlpb.DeleteManagedFolderRequest{
+		Name: folderPath,
+	}
+	if err := client.DeleteManagedFolder(ctx, req); err != nil && !strings.Contains(err.Error(), "The following URLs matched no objects or files") {
 		log.Fatalf(fmt.Sprintf("Error while deleting managed folder: %v", err))
 	}
 }
 
-func CreateManagedFoldersInBucket(managedFolderPath, bucket string) {
-	gcloudCreateManagedFolderCmd := fmt.Sprintf("alpha storage managed-folders create gs://%s/%s", bucket, managedFolderPath)
-
-	_, err := ExecuteGcloudCommandf(gcloudCreateManagedFolderCmd)
-	if err != nil && !strings.Contains(err.Error(), "The specified managed folder already exists") {
+func CreateManagedFoldersInBucket(ctx context.Context, client *control.StorageControlClient, managedFolderPath, bucket string) {
+	//gcloudCreateManagedFolderCmd := fmt.Sprintf("alpha storage managed-folders create gs://%s/%s", bucket, managedFolderPath)
+	mf := &controlpb.ManagedFolder{}
+	req := &controlpb.CreateManagedFolderRequest{
+		Parent:          fmt.Sprintf("projects/_/buckets/%v", bucket),
+		ManagedFolder:   mf,
+		ManagedFolderId: managedFolderPath,
+	}
+	if _, err := client.CreateManagedFolder(ctx, req); err != nil && !strings.Contains(err.Error(), "The specified managed folder already exists") {
 		log.Fatalf(fmt.Sprintf("Error while creating managed folder: %v", err))
 	}
 }
 
-func CopyFileInBucket(srcfilePath, destFilePath, bucket string, t *testing.T) {
-	gcloudCopyFileCmd := fmt.Sprintf("alpha storage cp %s gs://%s/%s/", srcfilePath, bucket, destFilePath)
-
-	_, err := ExecuteGcloudCommandf(gcloudCopyFileCmd)
+func CopyFileInBucket(ctx context.Context, storageClient *storage.Client, srcfilePath, destFilePath, bucket string, t *testing.T) {
+	//gcloudCopyFileCmd := fmt.Sprintf("alpha storage cp %s gs://%s/%s/", srcfilePath, bucket, destFilePath)
+	f, err := os.Open(srcfilePath)
 	if err != nil {
-		t.Fatalf(fmt.Sprintf("Error while copying file in bucket: %v", err))
+		t.Fatalf("os.Open: %w", err)
+	}
+	defer f.Close()
+
+	o := storageClient.Bucket(bucket).Object(destFilePath)
+	o = o.If(storage.Conditions{DoesNotExist: true})
+	wc := o.NewWriter(ctx)
+	if _, err = io.Copy(wc, f); err != nil {
+		t.Fatalf("Error while copying file : io.Copy: %w", err)
+	}
+	if err := wc.Close(); err != nil {
+		t.Fatalf("Error while closing writer : Writer.Close: %w", err)
 	}
 }
