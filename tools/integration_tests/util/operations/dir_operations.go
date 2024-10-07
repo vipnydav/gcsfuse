@@ -18,7 +18,6 @@ package operations
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -31,6 +30,7 @@ import (
 	"cloud.google.com/go/storage"
 	control "cloud.google.com/go/storage/control/apiv2"
 	"cloud.google.com/go/storage/control/apiv2/controlpb"
+	"github.com/googlecloudplatform/gcsfuse/v2/tools/integration_tests/util/client"
 	"golang.org/x/net/context"
 )
 
@@ -192,19 +192,8 @@ func CreateManagedFoldersInBucket(ctx context.Context, client *control.StorageCo
 
 func CopyFileInBucket(ctx context.Context, storageClient *storage.Client, srcfilePath, destFilePath, bucket string, t *testing.T) {
 	//gcloudCopyFileCmd := fmt.Sprintf("alpha storage cp %s gs://%s/%s/", srcfilePath, bucket, destFilePath)
-	f, err := os.Open(srcfilePath)
+	err := client.UploadGcsObject(ctx, storageClient, srcfilePath, bucket, destFilePath, false)
 	if err != nil {
-		t.Fatalf("os.Open: %w", err)
-	}
-	defer f.Close()
-
-	o := storageClient.Bucket(bucket).Object(destFilePath)
-	o = o.If(storage.Conditions{DoesNotExist: true})
-	wc := o.NewWriter(ctx)
-	if _, err = io.Copy(wc, f); err != nil {
-		t.Fatalf("Error while copying file : io.Copy: %w", err)
-	}
-	if err := wc.Close(); err != nil {
-		t.Fatalf("Error while closing writer : Writer.Close: %w", err)
+		t.Fatalf("Error while copying file : %w", err)
 	}
 }
