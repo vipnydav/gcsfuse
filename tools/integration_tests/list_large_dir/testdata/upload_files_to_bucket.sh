@@ -14,6 +14,7 @@
 # $1 testbucket
 # $2 DirectoryWithTwelveThousandFiles
 # $3 PrefixFileInDirectoryWithTwelveThousandFiles
+set -e
 TEST_BUCKET=$1
 DIR_WITH_TWELVE_THOUSAND_FILES=$2
 FILES=$3

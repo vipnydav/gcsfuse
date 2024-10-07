@@ -15,7 +15,7 @@
 # $1 testbucket
 # $2 PrefixImplicitDirInLargeDirListTest
 # $3 NumberOfImplicitDirsInDirectoryWithTwelveThousandFiles - 100
-
+set -e
 TEST_BUCKET=$1
 IMPLICIT_DIR=$2
 NUMBER_OF_FILES=$3

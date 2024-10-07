@@ -196,7 +196,7 @@ func TestListDirectoryWithTwelveThousandFilesAndHundredExplicitDir(t *testing.T)
 	startTime := time.Now()
 	objs, err := os.ReadDir(dirPath)
 	if err != nil {
-		t.Errorf("Error in listing directory.")
+		t.Errorf("Error in listing directory: %v", err)
 	}
 	endTime := time.Now()
 	validateDirectoryWithTwelveThousandFilesAndHundredExplicitDirectory(objs, t)
@@ -205,7 +205,7 @@ func TestListDirectoryWithTwelveThousandFilesAndHundredExplicitDir(t *testing.T)
 	startTime = time.Now()
 	objs, err = os.ReadDir(dirPath)
 	if err != nil {
-		t.Errorf("Error in listing directory.")
+		t.Errorf("Error in listing directory: %v", err)
 	}
 	endTime = time.Now()
 	validateDirectoryWithTwelveThousandFilesAndHundredExplicitDirectory(objs, t)
@@ -235,7 +235,7 @@ func TestListDirectoryWithTwelveThousandFilesAndHundredExplicitDirAndHundredImpl
 	startTime := time.Now()
 	objs, err := os.ReadDir(dirPath)
 	if err != nil {
-		t.Errorf("Error in listing directory.")
+		t.Errorf("Error in listing directory: %v", err)
 	}
 	endTime := time.Now()
 	validateDirectoryWithTwelveThousandFilesHundredExplicitDirAndHundredImplicitDir(objs, t)
@@ -244,7 +244,7 @@ func TestListDirectoryWithTwelveThousandFilesAndHundredExplicitDirAndHundredImpl
 	startTime = time.Now()
 	objs, err = os.ReadDir(dirPath)
 	if err != nil {
-		t.Errorf("Error in listing directory.")
+		t.Errorf("Error in listing directory: %v", err)
 	}
 	endTime = time.Now()
 	validateDirectoryWithTwelveThousandFilesHundredExplicitDirAndHundredImplicitDir(objs, t)
