@@ -25,8 +25,6 @@ import (
 	"cloud.google.com/go/storage"
 	control "cloud.google.com/go/storage/control/apiv2"
 	"github.com/googlecloudplatform/gcsfuse/v2/tools/integration_tests/util/client"
-	"github.com/googlecloudplatform/gcsfuse/v2/tools/integration_tests/util/operations"
-
 	"github.com/googlecloudplatform/gcsfuse/v2/tools/integration_tests/util/mounting/only_dir_mounting"
 	"github.com/googlecloudplatform/gcsfuse/v2/tools/integration_tests/util/mounting/static_mounting"
 
@@ -92,8 +90,8 @@ func TestMain(m *testing.M) {
 	if successCode == 0 {
 		log.Println("Running only dir mounting tests...")
 		setup.SetOnlyDirMounted(onlyDirMounted + "/")
-		operations.CreateManagedFoldersInBucket(ctx, controlClient, onlyDirMounted, setup.TestBucket())
-		defer operations.DeleteManagedFoldersInBucket(ctx, controlClient, onlyDirMounted, setup.TestBucket())
+		client.CreateManagedFoldersInBucket(ctx, controlClient, onlyDirMounted, setup.TestBucket())
+		defer client.DeleteManagedFoldersInBucket(ctx, controlClient, onlyDirMounted, setup.TestBucket())
 		mountFunc = only_dir_mounting.MountGcsfuseWithOnlyDir
 		successCode = m.Run()
 		setup.SaveLogFileInCaseOfFailure(successCode)

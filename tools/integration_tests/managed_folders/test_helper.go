@@ -112,21 +112,21 @@ func createDirectoryStructureForNonEmptyManagedFolders(ctx context.Context, stor
 	if err != nil {
 		log.Fatalf("Failed to clean up test directory: %v", err)
 	}
-	operations.CreateManagedFoldersInBucket(ctx, controlClient, path.Join(testDir, ManagedFolder1), bucket)
+	client.CreateManagedFoldersInBucket(ctx, controlClient, path.Join(testDir, ManagedFolder1), bucket)
 	f := operations.CreateFile(path.Join("/tmp", FileInNonEmptyManagedFoldersTest), setup.FilePermission_0600, t)
 	defer operations.CloseFile(f)
-	operations.CopyFileInBucket(ctx, storageClient, path.Join("/tmp", FileInNonEmptyManagedFoldersTest), path.Join(testDir, ManagedFolder1), bucket, t)
-	operations.CreateManagedFoldersInBucket(ctx, controlClient, path.Join(testDir, ManagedFolder2), bucket)
-	operations.CopyFileInBucket(ctx, storageClient, path.Join("/tmp", FileInNonEmptyManagedFoldersTest), path.Join(testDir, ManagedFolder2), bucket, t)
-	operations.CopyFileInBucket(ctx, storageClient, path.Join("/tmp", FileInNonEmptyManagedFoldersTest), path.Join(testDir, SimulatedFolderNonEmptyManagedFoldersTest), bucket, t)
-	operations.CopyFileInBucket(ctx, storageClient, path.Join("/tmp", FileInNonEmptyManagedFoldersTest), testDir, bucket, t)
+	client.CopyFileInBucket(ctx, storageClient, path.Join("/tmp", FileInNonEmptyManagedFoldersTest), path.Join(testDir, ManagedFolder1), bucket, t)
+	client.CreateManagedFoldersInBucket(ctx, controlClient, path.Join(testDir, ManagedFolder2), bucket)
+	client.CopyFileInBucket(ctx, storageClient, path.Join("/tmp", FileInNonEmptyManagedFoldersTest), path.Join(testDir, ManagedFolder2), bucket, t)
+	client.CopyFileInBucket(ctx, storageClient, path.Join("/tmp", FileInNonEmptyManagedFoldersTest), path.Join(testDir, SimulatedFolderNonEmptyManagedFoldersTest), bucket, t)
+	client.CopyFileInBucket(ctx, storageClient, path.Join("/tmp", FileInNonEmptyManagedFoldersTest), testDir, bucket, t)
 }
 
 func cleanup(ctx context.Context, storageClient *storage.Client, controlClient *control.StorageControlClient, bucket, testDir, serviceAccount, iam_role string, t *testing.T) {
 	revokePermissionToManagedFolder(bucket, path.Join(testDir, ManagedFolder1), serviceAccount, iam_role, t)
 	revokePermissionToManagedFolder(bucket, path.Join(testDir, ManagedFolder2), serviceAccount, iam_role, t)
-	operations.DeleteManagedFoldersInBucket(ctx, controlClient, path.Join(testDir, ManagedFolder1), setup.TestBucket())
-	operations.DeleteManagedFoldersInBucket(ctx, controlClient, path.Join(testDir, ManagedFolder2), setup.TestBucket())
+	client.DeleteManagedFoldersInBucket(ctx, controlClient, path.Join(testDir, ManagedFolder1), setup.TestBucket())
+	client.DeleteManagedFoldersInBucket(ctx, controlClient, path.Join(testDir, ManagedFolder2), setup.TestBucket())
 	setup.CleanupDirectoryOnGCS(ctx, storageClient, path.Join(bucket, testDir))
 }
 
