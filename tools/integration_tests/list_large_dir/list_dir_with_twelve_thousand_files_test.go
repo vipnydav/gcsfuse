@@ -118,7 +118,7 @@ func checkIfObjNameIsCorrect(objName string, prefix string, maxNumber int, t *te
 	objNumberStr := strings.ReplaceAll(objName, prefix, "")
 	objNumber, err := strconv.Atoi(objNumberStr)
 	if err != nil {
-		t.Errorf("Error in extracting file number.")
+		t.Errorf("Error in extracting file number: %v", err)
 	}
 	if objNumber < 1 || objNumber > maxNumber {
 		t.Errorf("Correct object does not exist.")
