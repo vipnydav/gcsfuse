@@ -164,6 +164,13 @@ func TestListDirectoryWithTwelveThousandFiles(t *testing.T) {
 	endTime := time.Now()
 	validateDirectoryWithTwelveThousandFiles(objs, t)
 	firstListTime := endTime.Sub(startTime)
+	// Warming up kernel cache before listing the directory a second time.
+	objs, err = os.ReadDir(dirPath)
+	if err != nil {
+		t.Errorf("Error in listing directory: %v", err)
+	}
+	endTime = time.Now()
+	validateDirectoryWithTwelveThousandFiles(objs, t)
 	// Listing the directory a second time should retrieve the response from the kernel cache.
 	startTime = time.Now()
 	objs, err = os.ReadDir(dirPath)
@@ -201,6 +208,12 @@ func TestListDirectoryWithTwelveThousandFilesAndHundredExplicitDir(t *testing.T)
 	endTime := time.Now()
 	validateDirectoryWithTwelveThousandFilesAndHundredExplicitDirectory(objs, t)
 	firstListTime := endTime.Sub(startTime)
+	// Warming up kernel cache before listing the directory a second time.
+	objs, err = os.ReadDir(dirPath)
+	if err != nil {
+		t.Errorf("Error in listing directory: %v", err)
+	}
+	validateDirectoryWithTwelveThousandFilesAndHundredExplicitDirectory(objs, t)
 	// Listing the directory a second time should retrieve the response from the kernel cache.
 	startTime = time.Now()
 	objs, err = os.ReadDir(dirPath)
@@ -240,6 +253,12 @@ func TestListDirectoryWithTwelveThousandFilesAndHundredExplicitDirAndHundredImpl
 	endTime := time.Now()
 	validateDirectoryWithTwelveThousandFilesHundredExplicitDirAndHundredImplicitDir(objs, t)
 	firstListTime := endTime.Sub(startTime)
+	// Warming up kernel cache before listing the directory a second time.
+	objs, err = os.ReadDir(dirPath)
+	if err != nil {
+		t.Errorf("Error in listing directory: %v", err)
+	}
+	validateDirectoryWithTwelveThousandFilesHundredExplicitDirAndHundredImplicitDir(objs, t)
 	// Listing the directory a second time should retrieve the response from the kernel cache.
 	startTime = time.Now()
 	objs, err = os.ReadDir(dirPath)
