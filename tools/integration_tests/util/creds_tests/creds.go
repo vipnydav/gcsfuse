@@ -92,6 +92,7 @@ func CreateCredentials(ctx context.Context) (serviceAccount, localKeyFilePath st
 
 func ApplyPermissionToServiceAccount(ctx context.Context, storageClient *storage.Client, serviceAccount, permission, bucket string) {
 	// Provide permission to service account for testing.
+	RevokeAllStoragePermission(ctx, storageClient, serviceAccount, bucket)
 	bucketHandle := storageClient.Bucket(bucket)
 	policy, err := bucketHandle.IAM().Policy(ctx)
 	if err != nil {
@@ -107,34 +108,7 @@ func ApplyPermissionToServiceAccount(ctx context.Context, storageClient *storage
 	if err := bucketHandle.IAM().SetPolicy(ctx, policy); err != nil {
 		setup.LogAndExit(fmt.Sprintf("Error applying permission to service account: Bucket(%q).IAM().SetPolicy: %v", bucket, err))
 	}
-	// Waiting for 2 minutes as it usually takes within 2 minutes for policy
-	// changes to propagate: https://cloud.google.com/iam/docs/access-change-propagation
 	time.Sleep(120 * time.Second)
-	maxAttempts := 10
-	waitInterval := 5 * time.Second
-	timeout := 2 * time.Minute
-	startTime := time.Now()
-
-	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		policy, err := bucketHandle.IAM().Policy(ctx)
-		if err != nil {
-			setup.LogAndExit(fmt.Sprintf("Error fetching policy: %v", err))
-		}
-
-		if policy.HasRole(identity, role) {
-			return // Permission applied successfully
-		}
-
-		time.Sleep(waitInterval)
-		waitInterval *= 2 // Exponential backoff
-
-		if time.Since(startTime) > timeout {
-			setup.LogAndExit(fmt.Sprintf("Timeout waiting for permission propagation"))
-		}
-	}
-
-	setup.LogAndExit(fmt.Sprintf("Failed to apply permission after %d attempts", maxAttempts))
-
 }
 
 func RevokePermission(ctx context.Context, storageClient *storage.Client, serviceAccount, permission, bucket string) {

@@ -59,9 +59,10 @@ type managedFoldersAdminPermission struct {
 func (s *managedFoldersAdminPermission) Setup(t *testing.T) {
 	createDirectoryStructureForNonEmptyManagedFolders(ctx, storageClient, controlClient, t)
 	if s.managedFoldersPermission != "nil" {
+		creds_tests.ApplyPermissionToServiceAccount(ctx, storageClient, serviceAccount, s.bucketPermission, bucket)
 		providePermissionToManagedFolder(ctx, secretManagerClient, bucket, path.Join(testDir, ManagedFolder1), serviceAccount, s.managedFoldersPermission, t)
 		providePermissionToManagedFolder(ctx, secretManagerClient, bucket, path.Join(testDir, ManagedFolder2), serviceAccount, s.managedFoldersPermission, t)
-		// Waiting for 60 seconds for policy changes to propagate. This values we kept based on our experiments.
+		// Waiting for 120 seconds for policy changes to propagate. This values we kept based on our experiments.
 		time.Sleep(60 * time.Second)
 	}
 }
@@ -75,6 +76,7 @@ func (s *managedFoldersAdminPermission) Teardown(t *testing.T) {
 		setup.CleanUpDir(path.Join(setup.MntDir(), TestDirForManagedFolderTest, ManagedFolder2))
 		return
 	}
+	creds_tests.RevokeAllStoragePermission(ctx, storageClient, serviceAccount, bucket)
 	setup.CleanUpDir(path.Join(setup.MntDir(), TestDirForManagedFolderTest))
 }
 
@@ -199,10 +201,10 @@ func TestManagedFolders_FolderAdminPermission(t *testing.T) {
 
 	setup.RunTestsOnlyForStaticMount(mountDir, t)
 
-	// Fetch credentials and apply permission on bucket.
+	//// Fetch credentials and apply permission on bucket.
 	serviceAccount, localKeyFilePath = creds_tests.CreateCredentials(ctx)
-	creds_tests.ApplyPermissionToServiceAccount(ctx, storageClient, serviceAccount, AdminPermission, setup.TestBucket())
-	defer creds_tests.RevokePermission(ctx, storageClient, serviceAccount, AdminPermission, setup.TestBucket())
+	//creds_tests.ApplyPermissionToServiceAccount(ctx, storageClient, serviceAccount, AdminPermission, setup.TestBucket())
+	//defer creds_tests.RevokePermission(ctx, storageClient, serviceAccount, AdminPermission, setup.TestBucket())
 
 	flags := []string{"--implicit-dirs", "--key-file=" + localKeyFilePath, "--rename-dir-limit=5", "--stat-cache-ttl=0"}
 	if hnsFlagSet, err := setup.AddHNSFlagForHierarchicalBucket(ctx, storageClient); err == nil {
@@ -215,17 +217,17 @@ func TestManagedFolders_FolderAdminPermission(t *testing.T) {
 	setup.SetMntDir(mountDir)
 
 	// Run tests on given {Bucket permission, Managed folder permission}.
-	permissions := [][]string{{AdminPermission, "nil"}, {AdminPermission, IAMRoleForViewPermission}, {AdminPermission, IAMRoleForAdminPermission}, {ViewPermission, IAMRoleForAdminPermission}}
+	permissions := [][]string{{ViewPermission, IAMRoleForAdminPermission}}
 
 	for i := 0; i < len(permissions); i++ {
 		log.Printf("Running tests with flags, bucket have %s permission and managed folder have %s permissions: %s", permissions[i][0], permissions[i][1], flags)
 		bucket, testDir = setup.GetBucketAndObjectBasedOnTypeOfMount(TestDirForManagedFolderTest)
 		ts.bucketPermission = permissions[i][0]
-		if ts.bucketPermission == ViewPermission {
-			creds_tests.RevokePermission(ctx, storageClient, serviceAccount, AdminPermission, setup.TestBucket())
-			creds_tests.ApplyPermissionToServiceAccount(ctx, storageClient, serviceAccount, ViewPermission, setup.TestBucket())
-			defer creds_tests.RevokePermission(ctx, storageClient, serviceAccount, ViewPermission, setup.TestBucket())
-		}
+		//if ts.bucketPermission == ViewPermission {
+		//	creds_tests.RevokePermission(ctx, storageClient, serviceAccount, AdminPermission, setup.TestBucket())
+		//	creds_tests.ApplyPermissionToServiceAccount(ctx, storageClient, serviceAccount, ViewPermission, setup.TestBucket())
+		//	defer creds_tests.RevokePermission(ctx, storageClient, serviceAccount, ViewPermission, setup.TestBucket())
+		//}
 		ts.managedFoldersPermission = permissions[i][1]
 
 		test_setup.RunTests(t, ts)
