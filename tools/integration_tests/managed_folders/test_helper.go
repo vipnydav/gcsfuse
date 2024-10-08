@@ -103,7 +103,7 @@ func revokePermissionToManagedFolder(ctx context.Context, secretManagerClient *s
 
 	updatedPolicyFilePath := removePermissionFromIAMPolicyFile(localIAMPolicyFilePath, iamRole, serviceAccount)
 
-	curlcmd = fmt.Sprintf("-X PUT --data-binary @%s -H \"Authorization: Bearer %s\" -H \"Content-Type: application/json\" \"https://storage.googleapis.com/storage/v1/b/%s/managedFolders/%s/iam\"", updatedPolicyFilePath, access_token, bucket, managedFolderPath)
+	curlcmd = fmt.Sprintf("-X PUT --http1.1 --data-binary @%s -H \"Authorization: Bearer %s\" -H \"Content-Type: application/json\" \"https://storage.googleapis.com/storage/v1/b/%s/managedFolders/%s/iam\"", updatedPolicyFilePath, access_token, bucket, managedFolderPath)
 	_, err = operations.ExecuteCurlCommandf(curlcmd)
 	if err != nil && !strings.Contains(err.Error(), "Policy binding with the specified principal, role, and condition not found!") && !strings.Contains(err.Error(), "The specified managed folder does not exist.") {
 		t.Fatalf("Error in removing permission to managed folder: %v", err)
