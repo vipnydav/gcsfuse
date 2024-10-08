@@ -116,11 +116,14 @@ func createDirectoryStructureForNonEmptyManagedFolders(ctx context.Context, stor
 	client.CreateManagedFoldersInBucket(ctx, controlClient, path.Join(testDir, ManagedFolder1), bucket)
 	f := operations.CreateFile(path.Join("/tmp", FileInNonEmptyManagedFoldersTest), setup.FilePermission_0600, t)
 	defer operations.CloseFile(f)
-	client.CopyFileInBucket(ctx, storageClient, path.Join("/tmp", FileInNonEmptyManagedFoldersTest), path.Join(testDir, ManagedFolder1), bucket, t)
+	managedFolder1 := path.Join(testDir, ManagedFolder1)
+	managedFolder2 := path.Join(testDir, ManagedFolder2)
+	simulatedFolderNonEmptyManagedFoldersTest := path.Join(testDir, SimulatedFolderNonEmptyManagedFoldersTest)
+	client.CopyFileInBucket(ctx, storageClient, path.Join("/tmp", FileInNonEmptyManagedFoldersTest), path.Join(managedFolder1, FileInNonEmptyManagedFoldersTest), bucket, t)
 	client.CreateManagedFoldersInBucket(ctx, controlClient, path.Join(testDir, ManagedFolder2), bucket)
-	client.CopyFileInBucket(ctx, storageClient, path.Join("/tmp", FileInNonEmptyManagedFoldersTest), path.Join(testDir, ManagedFolder2), bucket, t)
-	client.CopyFileInBucket(ctx, storageClient, path.Join("/tmp", FileInNonEmptyManagedFoldersTest), path.Join(testDir, SimulatedFolderNonEmptyManagedFoldersTest), bucket, t)
-	client.CopyFileInBucket(ctx, storageClient, path.Join("/tmp", FileInNonEmptyManagedFoldersTest), testDir, bucket, t)
+	client.CopyFileInBucket(ctx, storageClient, path.Join("/tmp", FileInNonEmptyManagedFoldersTest), path.Join(managedFolder2, FileInNonEmptyManagedFoldersTest), bucket, t)
+	client.CopyFileInBucket(ctx, storageClient, path.Join("/tmp", FileInNonEmptyManagedFoldersTest), path.Join(simulatedFolderNonEmptyManagedFoldersTest, FileInNonEmptyManagedFoldersTest), bucket, t)
+	client.CopyFileInBucket(ctx, storageClient, path.Join("/tmp", FileInNonEmptyManagedFoldersTest), path.Join(testDir, FileInNonEmptyManagedFoldersTest), bucket, t)
 }
 
 func cleanup(ctx context.Context, storageClient *storage.Client, controlClient *control.StorageControlClient, bucket, testDir, serviceAccount, iam_role string, t *testing.T) {
