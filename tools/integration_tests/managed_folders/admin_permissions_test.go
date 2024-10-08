@@ -69,6 +69,7 @@ func (s *managedFoldersAdminPermission) Setup(t *testing.T) {
 
 func (s *managedFoldersAdminPermission) Teardown(t *testing.T) {
 	// Due to bucket view permissions, it prevents cleaning resources outside of managed folders. So we are cleaning managed folders resources only.
+	log.Printf("Entering teardown")
 	if s.bucketPermission == ViewPermission {
 		revokePermissionToManagedFolder(ctx, secretManagerClient, bucket, path.Join(testDir, ManagedFolder1), serviceAccount, s.managedFoldersPermission, t)
 		setup.CleanUpDir(path.Join(setup.MntDir(), TestDirForManagedFolderTest, ManagedFolder1))
