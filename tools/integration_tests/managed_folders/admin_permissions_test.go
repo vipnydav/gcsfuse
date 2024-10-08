@@ -138,7 +138,9 @@ func (s *managedFoldersAdminPermission) TestCopyManagedFolder(t *testing.T) {
 	destDirPath := path.Join(setup.MntDir(), TestDirForManagedFolderTest, DestFolder)
 
 	err := operations.CopyDir(srcDirPath, destDirPath)
-
+	if err != nil {
+		t.Errorf("Error while copying directory")
+	}
 	if s.bucketPermission == ViewPermission {
 		operations.CheckErrorForReadOnlyFileSystem(err, t)
 	} else {
