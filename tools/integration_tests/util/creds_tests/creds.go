@@ -43,7 +43,7 @@ const CredentialsSecretName = "gcsfuse-integration-tests"
 
 var WhitelistedGcpProjects = []string{"gcs-fuse-test", "gcs-fuse-test-ml"}
 
-func CreateCredentials() (serviceAccount, localKeyFilePath string) {
+func CreateCredentials(ctx context.Context) (serviceAccount, localKeyFilePath string) {
 	log.Println("Running credentials tests...")
 
 	// Fetching project-id to get service account id.
@@ -62,10 +62,9 @@ func CreateCredentials() (serviceAccount, localKeyFilePath string) {
 	localKeyFilePath = path.Join(os.Getenv("HOME"), "creds.json")
 
 	// Download credentials
-	ctx := context.Background()
 	client, err := secretmanager.NewClient(ctx)
 	if err != nil {
-		setup.LogAndExit(fmt.Sprintf("failed to create secretmanager client: %w", err))
+		setup.LogAndExit(fmt.Sprintf("failed to create secretmanager client: %v", err))
 	}
 	defer client.Close()
 
@@ -96,7 +95,7 @@ func ApplyPermissionToServiceAccount(ctx context.Context, storageClient *storage
 	bucketHandle := storageClient.Bucket(bucket)
 	policy, err := bucketHandle.IAM().Policy(ctx)
 	if err != nil {
-		setup.LogAndExit(fmt.Sprintf("Error fetching: Bucket(%q).IAM().Policy: %w", bucket, err))
+		setup.LogAndExit(fmt.Sprintf("Error fetching: Bucket(%q).IAM().Policy: %v", bucket, err))
 	}
 	// Other valid prefixes are "serviceAccount:", "user:"
 	// See the documentation for more values.
@@ -106,11 +105,36 @@ func ApplyPermissionToServiceAccount(ctx context.Context, storageClient *storage
 
 	policy.Add(identity, role)
 	if err := bucketHandle.IAM().SetPolicy(ctx, policy); err != nil {
-		setup.LogAndExit(fmt.Sprintf("Error applying permission to service account: Bucket(%q).IAM().SetPolicy: %w", bucket, err))
+		setup.LogAndExit(fmt.Sprintf("Error applying permission to service account: Bucket(%q).IAM().SetPolicy: %v", bucket, err))
 	}
 	// Waiting for 2 minutes as it usually takes within 2 minutes for policy
 	// changes to propagate: https://cloud.google.com/iam/docs/access-change-propagation
 	time.Sleep(120 * time.Second)
+	maxAttempts := 10
+	waitInterval := 5 * time.Second
+	timeout := 2 * time.Minute
+	startTime := time.Now()
+
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		policy, err := bucketHandle.IAM().Policy(ctx)
+		if err != nil {
+			setup.LogAndExit(fmt.Sprintf("Error fetching policy: %v", err))
+		}
+
+		if policy.HasRole(identity, role) {
+			return // Permission applied successfully
+		}
+
+		time.Sleep(waitInterval)
+		waitInterval *= 2 // Exponential backoff
+
+		if time.Since(startTime) > timeout {
+			setup.LogAndExit(fmt.Sprintf("Timeout waiting for permission propagation"))
+		}
+	}
+
+	setup.LogAndExit(fmt.Sprintf("Failed to apply permission after %d attempts", maxAttempts))
+
 }
 
 func RevokePermission(ctx context.Context, storageClient *storage.Client, serviceAccount, permission, bucket string) {
@@ -118,7 +142,7 @@ func RevokePermission(ctx context.Context, storageClient *storage.Client, servic
 	bucketHandle := storageClient.Bucket(bucket)
 	policy, err := bucketHandle.IAM().Policy(ctx)
 	if err != nil {
-		setup.LogAndExit(fmt.Sprintf("Error fetching: Bucket(%q).IAM().Policy: %w", bucket, err))
+		setup.LogAndExit(fmt.Sprintf("Error fetching: Bucket(%q).IAM().Policy: %v", bucket, err))
 	}
 	// Other valid prefixes are "serviceAccount:", "user:"
 	// See the documentation for more values.
@@ -128,12 +152,19 @@ func RevokePermission(ctx context.Context, storageClient *storage.Client, servic
 
 	policy.Remove(identity, role)
 	if err := bucketHandle.IAM().SetPolicy(ctx, policy); err != nil {
-		setup.LogAndExit(fmt.Sprintf("Error applying permission to service account: Bucket(%q).IAM().SetPolicy: %w", bucket, err))
+		setup.LogAndExit(fmt.Sprintf("Error applying permission to service account: Bucket(%q).IAM().SetPolicy: %v", bucket, err))
 	}
 }
 
+func RevokeAllStoragePermission(ctx context.Context, storageClient *storage.Client, serviceAccount, bucket string) {
+	// Revoke all storage permission to service account before testing incase testing failed in previous run leading to inconsistency.
+	RevokePermission(ctx, storageClient, serviceAccount, "objectAdmin", bucket)
+	RevokePermission(ctx, storageClient, serviceAccount, "objectViewer", bucket)
+}
+
 func RunTestsForKeyFileAndGoogleApplicationCredentialsEnvVarSet(ctx context.Context, storageClient *storage.Client, testFlagSet [][]string, permission string, m *testing.M) (successCode int) {
-	serviceAccount, localKeyFilePath := CreateCredentials()
+	serviceAccount, localKeyFilePath := CreateCredentials(ctx)
+	RevokeAllStoragePermission(ctx, storageClient, serviceAccount, setup.TestBucket())
 	ApplyPermissionToServiceAccount(ctx, storageClient, serviceAccount, permission, setup.TestBucket())
 	defer RevokePermission(ctx, storageClient, serviceAccount, permission, setup.TestBucket())
 

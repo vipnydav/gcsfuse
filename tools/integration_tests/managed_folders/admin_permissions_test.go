@@ -200,8 +200,9 @@ func TestManagedFolders_FolderAdminPermission(t *testing.T) {
 	setup.RunTestsOnlyForStaticMount(mountDir, t)
 
 	// Fetch credentials and apply permission on bucket.
-	serviceAccount, localKeyFilePath = creds_tests.CreateCredentials()
+	serviceAccount, localKeyFilePath = creds_tests.CreateCredentials(ctx)
 	creds_tests.ApplyPermissionToServiceAccount(ctx, storageClient, serviceAccount, AdminPermission, setup.TestBucket())
+	defer creds_tests.RevokePermission(ctx, storageClient, serviceAccount, AdminPermission, setup.TestBucket())
 
 	flags := []string{"--implicit-dirs", "--key-file=" + localKeyFilePath, "--rename-dir-limit=5", "--stat-cache-ttl=0"}
 	if hnsFlagSet, err := setup.AddHNSFlagForHierarchicalBucket(ctx, storageClient); err == nil {
