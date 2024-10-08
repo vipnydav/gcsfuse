@@ -20,7 +20,6 @@
 package managed_folders
 
 import (
-	"context"
 	"log"
 	"os"
 	"path"
@@ -58,16 +57,7 @@ type managedFoldersAdminPermission struct {
 }
 
 func (s *managedFoldersAdminPermission) Setup(t *testing.T) {
-	var err error
-	ctx = context.Background()
-	storageClient, err = client.CreateStorageClient(ctx)
-	if err != nil {
-		log.Printf("Error creating storage client: %v\n", err)
-		os.Exit(1)
-	}
-	defer storageClient.Close()
-
-	createDirectoryStructureForNonEmptyManagedFolders(ctx, storageClient, t)
+	createDirectoryStructureForNonEmptyManagedFolders(ctx, storageClient, controlClient, t)
 	if s.managedFoldersPermission != "nil" {
 		providePermissionToManagedFolder(bucket, path.Join(testDir, ManagedFolder1), serviceAccount, s.managedFoldersPermission, t)
 		providePermissionToManagedFolder(bucket, path.Join(testDir, ManagedFolder2), serviceAccount, s.managedFoldersPermission, t)
@@ -210,8 +200,9 @@ func TestManagedFolders_FolderAdminPermission(t *testing.T) {
 	setup.RunTestsOnlyForStaticMount(mountDir, t)
 
 	// Fetch credentials and apply permission on bucket.
-	serviceAccount, localKeyFilePath = creds_tests.CreateCredentials()
+	serviceAccount, localKeyFilePath = creds_tests.CreateCredentials(ctx)
 	creds_tests.ApplyPermissionToServiceAccount(ctx, storageClient, serviceAccount, AdminPermission, setup.TestBucket())
+	defer creds_tests.RevokePermission(ctx, storageClient, serviceAccount, AdminPermission, setup.TestBucket())
 
 	flags := []string{"--implicit-dirs", "--key-file=" + localKeyFilePath, "--rename-dir-limit=5", "--stat-cache-ttl=0"}
 	if hnsFlagSet, err := setup.AddHNSFlagForHierarchicalBucket(ctx, storageClient); err == nil {
@@ -240,7 +231,7 @@ func TestManagedFolders_FolderAdminPermission(t *testing.T) {
 		test_setup.RunTests(t, ts)
 	}
 	t.Cleanup(func() {
-		operations.DeleteManagedFoldersInBucket(path.Join(testDir, ManagedFolder1), setup.TestBucket())
-		operations.DeleteManagedFoldersInBucket(path.Join(testDir, ManagedFolder2), setup.TestBucket())
+		client.DeleteManagedFoldersInBucket(ctx, controlClient, path.Join(testDir, ManagedFolder1), setup.TestBucket())
+		client.DeleteManagedFoldersInBucket(ctx, controlClient, path.Join(testDir, ManagedFolder2), setup.TestBucket())
 	})
 }

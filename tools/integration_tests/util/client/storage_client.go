@@ -263,6 +263,7 @@ func UploadGcsObject(ctx context.Context, client *storage.Client, localPath, buc
 
 	// Copy the file contents to the object writer.
 	if _, err := io.Copy(w, f); err != nil {
+		log.Printf("Could not copy the file")
 		return fmt.Errorf("failed to copy file %s to gs://%s/%s: %w", localPath, bucketName, objectName, err)
 	}
 	return nil
