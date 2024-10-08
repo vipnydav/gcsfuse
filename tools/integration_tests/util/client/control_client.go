@@ -43,7 +43,8 @@ func DeleteManagedFoldersInBucket(ctx context.Context, client *control.StorageCo
 	//gcloudDeleteManagedFolderCmd := fmt.Sprintf("alpha storage rm -r gs://%s/%s", bucket, managedFolderPath)
 	folderPath := fmt.Sprintf("projects/_/buckets/%v/managedFolders/%v/", bucket, managedFolderPath)
 	req := &controlpb.DeleteManagedFolderRequest{
-		Name: folderPath,
+		Name:          folderPath,
+		AllowNonEmpty: true,
 	}
 	if err := client.DeleteManagedFolder(ctx, req); err != nil && !strings.Contains(err.Error(), "The following URLs matched no objects or files") {
 		log.Fatalf(fmt.Sprintf("Error while deleting managed folder: %v", err))
