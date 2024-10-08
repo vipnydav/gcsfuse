@@ -78,7 +78,7 @@ func CreateAccessTokenSecret(ctx context.Context, client *secretmanager.Client) 
 
 	// Declare the payload to store.
 	payload, err := getGloudAuthToken()
-	if err != nil {
+	if err != nil && !strings.Contains(err.Error(), "rpc error: code = AlreadyExists") {
 		log.Fatalf("failed to get gcloud auth access token : %v", err)
 	}
 
