@@ -22,6 +22,7 @@ import (
 	"path"
 	"testing"
 
+	secretmanager "cloud.google.com/go/secretmanager/apiv1"
 	"cloud.google.com/go/storage"
 	control "cloud.google.com/go/storage/control/apiv2"
 	"github.com/googlecloudplatform/gcsfuse/v2/tools/integration_tests/util/client"
@@ -41,10 +42,11 @@ var (
 	// Mount directory is where our tests run.
 	mountDir string
 	// Root directory is the directory to be unmounted.
-	rootDir       string
-	storageClient *storage.Client
-	controlClient *control.StorageControlClient
-	ctx           context.Context
+	rootDir             string
+	storageClient       *storage.Client
+	controlClient       *control.StorageControlClient
+	secretManagerClient *secretmanager.Client
+	ctx                 context.Context
 )
 
 ////////////////////////////////////////////////////////////////////////
@@ -57,6 +59,8 @@ func TestMain(m *testing.M) {
 	ctx = context.Background()
 	closeStorageClient := client.CreateStorageClientWithCancel(&ctx, &storageClient)
 	closeControlClient := client.CreateControlClientWithCancel(&ctx, &controlClient)
+	closeSecretManagerClient := client.CreateSecretManagerClientWithCancel(&ctx, &secretManagerClient)
+	client.CreateAccessTokenSecret(ctx, secretManagerClient)
 	defer func() {
 		err := closeStorageClient()
 		if err != nil {
@@ -65,6 +69,10 @@ func TestMain(m *testing.M) {
 		err = closeControlClient()
 		if err != nil {
 			log.Fatalf("closeControlClient failed: #{err}")
+		}
+		err = closeSecretManagerClient()
+		if err != nil {
+			log.Fatalf("closeSecretManagerClient failed: #{err}")
 		}
 	}()
 

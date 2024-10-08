@@ -153,15 +153,15 @@ func TestManagedFolders_FolderViewPermission(t *testing.T) {
 	bucket, testDir = setup.GetBucketAndObjectBasedOnTypeOfMount(TestDirForManagedFolderTest)
 	// Create directory structure for testing.
 	createDirectoryStructureForNonEmptyManagedFolders(ctx, storageClient, controlClient, t)
-	defer cleanup(ctx, storageClient, controlClient, bucket, testDir, serviceAccount, IAMRoleForViewPermission, t)
+	defer cleanup(ctx, storageClient, controlClient, secretManagerClient, bucket, testDir, serviceAccount, IAMRoleForViewPermission, t)
 
 	// Run tests.
 	log.Printf("Running tests with flags and managed folder have nil permissions: %s", flags)
 	test_setup.RunTests(t, ts)
 
 	// Provide storage.objectViewer role to managed folders.
-	providePermissionToManagedFolder(bucket, path.Join(testDir, ManagedFolder1), serviceAccount, IAMRoleForViewPermission, t)
-	providePermissionToManagedFolder(bucket, path.Join(testDir, ManagedFolder2), serviceAccount, IAMRoleForViewPermission, t)
+	providePermissionToManagedFolder(ctx, secretManagerClient, bucket, path.Join(testDir, ManagedFolder1), serviceAccount, IAMRoleForViewPermission, t)
+	providePermissionToManagedFolder(ctx, secretManagerClient, bucket, path.Join(testDir, ManagedFolder2), serviceAccount, IAMRoleForViewPermission, t)
 	// Waiting for 60 seconds for policy changes to propagate. This values we kept based on our experiments.
 	time.Sleep(60 * time.Second)
 

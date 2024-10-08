@@ -59,8 +59,8 @@ type managedFoldersAdminPermission struct {
 func (s *managedFoldersAdminPermission) Setup(t *testing.T) {
 	createDirectoryStructureForNonEmptyManagedFolders(ctx, storageClient, controlClient, t)
 	if s.managedFoldersPermission != "nil" {
-		providePermissionToManagedFolder(bucket, path.Join(testDir, ManagedFolder1), serviceAccount, s.managedFoldersPermission, t)
-		providePermissionToManagedFolder(bucket, path.Join(testDir, ManagedFolder2), serviceAccount, s.managedFoldersPermission, t)
+		providePermissionToManagedFolder(ctx, secretManagerClient, bucket, path.Join(testDir, ManagedFolder1), serviceAccount, s.managedFoldersPermission, t)
+		providePermissionToManagedFolder(ctx, secretManagerClient, bucket, path.Join(testDir, ManagedFolder2), serviceAccount, s.managedFoldersPermission, t)
 		// Waiting for 60 seconds for policy changes to propagate. This values we kept based on our experiments.
 		time.Sleep(60 * time.Second)
 	}
@@ -69,9 +69,9 @@ func (s *managedFoldersAdminPermission) Setup(t *testing.T) {
 func (s *managedFoldersAdminPermission) Teardown(t *testing.T) {
 	// Due to bucket view permissions, it prevents cleaning resources outside of managed folders. So we are cleaning managed folders resources only.
 	if s.bucketPermission == ViewPermission {
-		revokePermissionToManagedFolder(bucket, path.Join(testDir, ManagedFolder1), serviceAccount, s.managedFoldersPermission, t)
+		revokePermissionToManagedFolder(ctx, secretManagerClient, bucket, path.Join(testDir, ManagedFolder1), serviceAccount, s.managedFoldersPermission, t)
 		setup.CleanUpDir(path.Join(setup.MntDir(), TestDirForManagedFolderTest, ManagedFolder1))
-		revokePermissionToManagedFolder(bucket, path.Join(testDir, ManagedFolder2), serviceAccount, s.managedFoldersPermission, t)
+		revokePermissionToManagedFolder(ctx, secretManagerClient, bucket, path.Join(testDir, ManagedFolder2), serviceAccount, s.managedFoldersPermission, t)
 		setup.CleanUpDir(path.Join(setup.MntDir(), TestDirForManagedFolderTest, ManagedFolder2))
 		return
 	}

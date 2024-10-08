@@ -70,3 +70,7 @@ func runCommand(cmd *exec.Cmd) ([]byte, error) {
 func ExecuteGcloudCommandf(format string, args ...any) ([]byte, error) {
 	return executeToolCommandf("gcloud", format, args...)
 }
+
+func ExecuteCurlCommandf(format string, args ...any) ([]byte, error) {
+	return executeToolCommandf("curl", format, args...)
+}

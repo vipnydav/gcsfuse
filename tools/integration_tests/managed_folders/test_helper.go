@@ -26,6 +26,7 @@ import (
 	"strings"
 	"testing"
 
+	secretmanager "cloud.google.com/go/secretmanager/apiv1"
 	"cloud.google.com/go/storage"
 	control "cloud.google.com/go/storage/control/apiv2"
 	"github.com/googlecloudplatform/gcsfuse/v2/tools/integration_tests/util/client"
@@ -54,7 +55,7 @@ type IAMPolicy struct {
 	} `json:"bindings"`
 }
 
-func providePermissionToManagedFolder(bucket, managedFolderPath, serviceAccount, iamRole string, t *testing.T) {
+func providePermissionToManagedFolder(ctx context.Context, secretManagerClient *secretmanager.Client, bucket, managedFolderPath, serviceAccount, iamRole string, t *testing.T) {
 	policy := IAMPolicy{
 		Bindings: []struct {
 			Role    string   `json:"role"`
@@ -82,18 +83,28 @@ func providePermissionToManagedFolder(bucket, managedFolderPath, serviceAccount,
 	if err != nil {
 		t.Fatalf(fmt.Sprintf("Error in writing iam policy in json FileInNonEmptyManagedFoldersTest : %v", err))
 	}
-
-	gcloudProvidePermissionCmd := fmt.Sprintf("alpha storage managed-folders set-iam-policy gs://%s/%s %s", bucket, managedFolderPath, localIAMPolicyFilePath)
-	_, err = operations.ExecuteGcloudCommandf(gcloudProvidePermissionCmd)
+	access_token := client.GetAccessTokenSecret(ctx, secretManagerClient)
+	curlcmd := fmt.Sprintf("-X PUT --data-binary @%s -H \"Authorization: Bearer %s\" -H \"Content-Type: application/json\" \"https://storage.googleapis.com/storage/v1/b/%s/managedFolders/%s/iam\"", localIAMPolicyFilePath, access_token, bucket, managedFolderPath)
+	_, err = operations.ExecuteCurlCommandf(curlcmd)
 	if err != nil {
 		t.Fatalf("Error in providing permission to managed folder: %v", err)
 	}
 }
 
-func revokePermissionToManagedFolder(bucket, managedFolderPath, serviceAccount, iamRole string, t *testing.T) {
-	gcloudRevokePermissionCmd := fmt.Sprintf("alpha storage managed-folders remove-iam-policy-binding  gs://%s/%s --member=%s --role=%s", bucket, managedFolderPath, serviceAccount, iamRole)
+func revokePermissionToManagedFolder(ctx context.Context, secretManagerClient *secretmanager.Client, bucket, managedFolderPath, serviceAccount, iamRole string, t *testing.T) {
+	localIAMPolicyFilePath := path.Join(os.Getenv("HOME"), "iam_pteolicy.json")
+	access_token := client.GetAccessTokenSecret(ctx, secretManagerClient)
+	curlcmd := fmt.Sprintf("-X GET -H \"Authorization: Bearer \" %s -H \"Accept: application/json\" \"https://storage.googleapis.com/storage/v1/b/%s/managedFolders/%s/iam -o %s", access_token, bucket, managedFolderPath, localIAMPolicyFilePath)
 
-	_, err := operations.ExecuteGcloudCommandf(gcloudRevokePermissionCmd)
+	_, err := operations.ExecuteCurlCommandf(curlcmd)
+	if err != nil {
+		t.Fatalf("Could not retrieve existing IAM policy: %v", err)
+	}
+
+	updatedPolicyFilePath := removePermissionFromIAMPolicyFile(localIAMPolicyFilePath, iamRole, serviceAccount)
+
+	curlcmd = fmt.Sprintf("-X PUT --data-binary @%s -H \"Authorization: Bearer %s\" -H \"Content-Type: application/json\" \"https://storage.googleapis.com/storage/v1/b/%s/managedFolders/%s/iam\"", updatedPolicyFilePath, access_token, bucket, managedFolderPath)
+	_, err = operations.ExecuteCurlCommandf(curlcmd)
 	if err != nil && !strings.Contains(err.Error(), "Policy binding with the specified principal, role, and condition not found!") && !strings.Contains(err.Error(), "The specified managed folder does not exist.") {
 		t.Fatalf("Error in removing permission to managed folder: %v", err)
 	}
@@ -126,9 +137,9 @@ func createDirectoryStructureForNonEmptyManagedFolders(ctx context.Context, stor
 	client.CopyFileInBucket(ctx, storageClient, path.Join("/tmp", FileInNonEmptyManagedFoldersTest), path.Join(testDir, FileInNonEmptyManagedFoldersTest), bucket, t)
 }
 
-func cleanup(ctx context.Context, storageClient *storage.Client, controlClient *control.StorageControlClient, bucket, testDir, serviceAccount, iam_role string, t *testing.T) {
-	revokePermissionToManagedFolder(bucket, path.Join(testDir, ManagedFolder1), serviceAccount, iam_role, t)
-	revokePermissionToManagedFolder(bucket, path.Join(testDir, ManagedFolder2), serviceAccount, iam_role, t)
+func cleanup(ctx context.Context, storageClient *storage.Client, controlClient *control.StorageControlClient, secretManagerClient *secretmanager.Client, bucket, testDir, serviceAccount, iam_role string, t *testing.T) {
+	revokePermissionToManagedFolder(ctx, secretManagerClient, bucket, path.Join(testDir, ManagedFolder1), serviceAccount, iam_role, t)
+	revokePermissionToManagedFolder(ctx, secretManagerClient, bucket, path.Join(testDir, ManagedFolder2), serviceAccount, iam_role, t)
 	client.DeleteManagedFoldersInBucket(ctx, controlClient, path.Join(testDir, ManagedFolder1), setup.TestBucket())
 	client.DeleteManagedFoldersInBucket(ctx, controlClient, path.Join(testDir, ManagedFolder2), setup.TestBucket())
 	setup.CleanupDirectoryOnGCS(ctx, storageClient, path.Join(bucket, testDir))
@@ -254,4 +265,41 @@ func createFileForTest(filePath string, t *testing.T) {
 	if err != nil {
 		t.Errorf("Error in creating local file, %v", err)
 	}
+}
+
+func removePermissionFromIAMPolicyFile(filepath, iamRole, serviceAccount string) (updatedPolicyFilepath string) {
+	policy, err := os.ReadFile(filepath)
+	if err != nil {
+		log.Fatalf("Could not read policy file: %v", err)
+	}
+	var iampolicy IAMPolicy
+	err = json.Unmarshal(policy, &iampolicy)
+	if err != nil {
+		log.Fatalf("error while marshalling data : %v", err)
+	}
+	for i, binding := range iampolicy.Bindings {
+		if binding.Role == iamRole {
+			updatedMembers := []string{}
+			for _, member := range binding.Members {
+				if member != serviceAccount {
+					updatedMembers = append(updatedMembers, member)
+				}
+			}
+			iampolicy.Bindings[i].Members = updatedMembers
+		}
+	}
+	// Marshal the data into JSON format
+	// Indent for readability
+	jsonData, err := json.MarshalIndent(iampolicy, "", "  ")
+	if err != nil {
+		log.Fatalf(fmt.Sprintf("Error in marshal the data into JSON format: %v", err))
+	}
+
+	localIAMPolicyFilePath := path.Join(os.Getenv("HOME"), "updated_iam_policy.json")
+	// Write the JSON to a FileInNonEmptyManagedFoldersTest
+	err = os.WriteFile(localIAMPolicyFilePath, jsonData, setup.FilePermission_0600)
+	if err != nil {
+		log.Fatalf(fmt.Sprintf("Error in writing iam policy in json FileInNonEmptyManagedFoldersTest : %v", err))
+	}
+	return localIAMPolicyFilePath
 }
