@@ -108,6 +108,7 @@ func createDirectoryStructureForNonEmptyManagedFolders(ctx context.Context, stor
 	// testBucket/NonEmptyManagedFoldersTest/SimulatedFolderNonEmptyManagedFoldersTest/testFile
 	// testBucket/NonEmptyManagedFoldersTest/testFile
 	bucket, testDir := setup.GetBucketAndObjectBasedOnTypeOfMount(TestDirForManagedFolderTest)
+	log.Printf("bucket %s testDir %s", bucket, testDir)
 	err := client.DeleteAllObjectsWithPrefix(ctx, storageClient, testDir)
 	if err != nil {
 		log.Fatalf("Failed to clean up test directory: %v", err)

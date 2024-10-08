@@ -431,6 +431,7 @@ func CreateFile(filePath string, filePerms os.FileMode, t *testing.T) (f *os.Fil
 	if err != nil {
 		t.Fatalf("CreateFile(%s): %v", filePath, err)
 	}
+	log.Printf("Created file successfully")
 	return
 }
 

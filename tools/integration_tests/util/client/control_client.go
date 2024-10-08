@@ -61,6 +61,7 @@ func CreateManagedFoldersInBucket(ctx context.Context, client *control.StorageCo
 	if _, err := client.CreateManagedFolder(ctx, req); err != nil && !strings.Contains(err.Error(), "The specified managed folder already exists") {
 		log.Fatalf(fmt.Sprintf("Error while creating managed folder: %v", err))
 	}
+	log.Printf("Managed folder was created successfully")
 }
 
 func CopyFileInBucket(ctx context.Context, storageClient *storage.Client, srcfilePath, destFilePath, bucket string, t *testing.T) {
