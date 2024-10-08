@@ -38,8 +38,10 @@ func GenerateRandomData(sizeInBytes int64) ([]byte, error) {
 func executeToolCommandf(tool string, format string, args ...any) ([]byte, error) {
 	cmdArgs := tool + " " + fmt.Sprintf(format, args...)
 	cmd := exec.Command("/bin/bash", "-c", cmdArgs)
-
-	return runCommand(cmd)
+	if tool == "curl" {
+		return runCommand(cmd, true)
+	}
+	return runCommand(cmd, false)
 }
 
 // Executes any given tool (e.g. gsutil/gcloud) with given args in specified directory.
@@ -48,10 +50,10 @@ func ExecuteToolCommandfInDirectory(dirPath, tool, format string, args ...any) (
 	cmd := exec.Command("/bin/bash", "-c", cmdArgs)
 	cmd.Dir = dirPath
 
-	return runCommand(cmd)
+	return runCommand(cmd, false)
 }
 
-func runCommand(cmd *exec.Cmd) ([]byte, error) {
+func runCommand(cmd *exec.Cmd, hideCommand bool) ([]byte, error) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 
@@ -60,6 +62,9 @@ func runCommand(cmd *exec.Cmd) ([]byte, error) {
 
 	err := cmd.Run()
 	if err != nil {
+		if hideCommand {
+			return stdout.Bytes(), fmt.Errorf("failed command : %v, %s", err, stderr.String())
+		}
 		return stdout.Bytes(), fmt.Errorf("failed command '%s': %v, %s", cmd.String(), err, stderr.String())
 	}
 
