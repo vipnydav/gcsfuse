@@ -92,7 +92,7 @@ func providePermissionToManagedFolder(ctx context.Context, secretManagerClient *
 }
 
 func revokePermissionToManagedFolder(ctx context.Context, secretManagerClient *secretmanager.Client, bucket, managedFolderPath, serviceAccount, iamRole string, t *testing.T) {
-	localIAMPolicyFilePath := path.Join(os.Getenv("HOME"), "iam_pteolicy.json")
+	localIAMPolicyFilePath := path.Join(os.Getenv("HOME"), "iam_policy.json")
 	access_token := client.GetAccessTokenSecret(ctx, secretManagerClient)
 	curlcmd := fmt.Sprintf("-X GET --http1.1  -H \"Authorization: Bearer \" %s -H \"Accept: application/json\" \"https://storage.googleapis.com/storage/v1/b/%s/managedFolders/%s/iam -o %s", access_token, bucket, managedFolderPath, localIAMPolicyFilePath)
 
