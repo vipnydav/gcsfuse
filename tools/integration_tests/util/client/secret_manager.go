@@ -72,7 +72,10 @@ func CreateAccessTokenSecret(ctx context.Context, client *secretmanager.Client) 
 	}
 
 	secret, err := client.CreateSecret(ctx, createSecretReq)
-	if err != nil && !strings.Contains(err.Error(), "rpc error: code = AlreadyExists") {
+	if err != nil {
+		if strings.Contains(err.Error(), "rpc error: code = AlreadyExists") {
+			return
+		}
 		log.Fatalf("failed to create secret: %v", err)
 	}
 
