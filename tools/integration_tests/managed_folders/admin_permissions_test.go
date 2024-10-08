@@ -71,13 +71,13 @@ func (s *managedFoldersAdminPermission) Teardown(t *testing.T) {
 	// Due to bucket view permissions, it prevents cleaning resources outside of managed folders. So we are cleaning managed folders resources only.
 	log.Printf("Entering teardown")
 	if s.bucketPermission == ViewPermission {
-		revokePermissionToManagedFolder(ctx, secretManagerClient, bucket, path.Join(testDir, ManagedFolder1), serviceAccount, s.managedFoldersPermission, t)
 		setup.CleanUpDir(path.Join(setup.MntDir(), TestDirForManagedFolderTest, ManagedFolder1))
-		revokePermissionToManagedFolder(ctx, secretManagerClient, bucket, path.Join(testDir, ManagedFolder2), serviceAccount, s.managedFoldersPermission, t)
 		setup.CleanUpDir(path.Join(setup.MntDir(), TestDirForManagedFolderTest, ManagedFolder2))
 		return
 	}
 	creds_tests.RevokeAllStoragePermission(ctx, storageClient, serviceAccount, bucket)
+	revokePermissionToManagedFolder(ctx, secretManagerClient, bucket, path.Join(testDir, ManagedFolder1), serviceAccount, s.managedFoldersPermission, t)
+	revokePermissionToManagedFolder(ctx, secretManagerClient, bucket, path.Join(testDir, ManagedFolder2), serviceAccount, s.managedFoldersPermission, t)
 	setup.CleanUpDir(path.Join(setup.MntDir(), TestDirForManagedFolderTest))
 }
 
@@ -218,7 +218,7 @@ func TestManagedFolders_FolderAdminPermission(t *testing.T) {
 	setup.SetMntDir(mountDir)
 
 	// Run tests on given {Bucket permission, Managed folder permission}.
-	permissions := [][]string{{ViewPermission, IAMRoleForAdminPermission}}
+	permissions := [][]string{{AdminPermission, "nil"}, {AdminPermission, IAMRoleForViewPermission}, {AdminPermission, IAMRoleForAdminPermission}, {ViewPermission, IAMRoleForAdminPermission}}
 
 	for i := 0; i < len(permissions); i++ {
 		log.Printf("Running tests with flags, bucket have %s permission and managed folder have %s permissions: %s", permissions[i][0], permissions[i][1], flags)
