@@ -26,7 +26,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/googlecloudplatform/gcsfuse/v2/tools/integration_tests/util/client"
 	"github.com/googlecloudplatform/gcsfuse/v2/tools/integration_tests/util/creds_tests"
 	"github.com/googlecloudplatform/gcsfuse/v2/tools/integration_tests/util/operations"
 	"github.com/googlecloudplatform/gcsfuse/v2/tools/integration_tests/util/setup"
@@ -57,7 +56,7 @@ type managedFoldersAdminPermission struct {
 }
 
 func (s *managedFoldersAdminPermission) Setup(t *testing.T) {
-	createDirectoryStructureForNonEmptyManagedFolders(ctx, storageClient, controlClient, t)
+	createDirectoryStructureForNonEmptyManagedFolders(ctx, storageClient, t)
 	if s.managedFoldersPermission != "nil" {
 		providePermissionToManagedFolder(bucket, path.Join(testDir, ManagedFolder1), serviceAccount, s.managedFoldersPermission, t)
 		providePermissionToManagedFolder(bucket, path.Join(testDir, ManagedFolder2), serviceAccount, s.managedFoldersPermission, t)
@@ -202,7 +201,6 @@ func TestManagedFolders_FolderAdminPermission(t *testing.T) {
 	// Fetch credentials and apply permission on bucket.
 	serviceAccount, localKeyFilePath = creds_tests.CreateCredentials(ctx)
 	creds_tests.ApplyPermissionToServiceAccount(ctx, storageClient, serviceAccount, AdminPermission, setup.TestBucket())
-	defer creds_tests.RevokePermission(ctx, storageClient, serviceAccount, AdminPermission, setup.TestBucket())
 
 	flags := []string{"--implicit-dirs", "--key-file=" + localKeyFilePath, "--rename-dir-limit=5", "--stat-cache-ttl=0"}
 	if hnsFlagSet, err := setup.AddHNSFlagForHierarchicalBucket(ctx, storageClient); err == nil {
@@ -231,7 +229,7 @@ func TestManagedFolders_FolderAdminPermission(t *testing.T) {
 		test_setup.RunTests(t, ts)
 	}
 	t.Cleanup(func() {
-		client.DeleteManagedFoldersInBucket(ctx, controlClient, path.Join(testDir, ManagedFolder1), setup.TestBucket())
-		client.DeleteManagedFoldersInBucket(ctx, controlClient, path.Join(testDir, ManagedFolder2), setup.TestBucket())
+		operations.DeleteManagedFoldersInBucket(path.Join(testDir, ManagedFolder1), setup.TestBucket())
+		operations.DeleteManagedFoldersInBucket(path.Join(testDir, ManagedFolder2), setup.TestBucket())
 	})
 }

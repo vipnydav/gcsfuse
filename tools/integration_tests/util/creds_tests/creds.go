@@ -64,10 +64,9 @@ func CreateCredentials(ctx context.Context) (serviceAccount, localKeyFilePath st
 	// Download credentials
 	client, err := secretmanager.NewClient(ctx)
 	if err != nil {
-		setup.LogAndExit(fmt.Sprintf("failed to create secretmanager client: %v", err))
+		setup.LogAndExit(fmt.Sprintf("Failed to create secret manager client: %v", err))
 	}
 	defer client.Close()
-
 	req := &secretmanagerpb.AccessSecretVersionRequest{
 		Name: fmt.Sprintf("projects/%s/secrets/%s/versions/latest", id, CredentialsSecretName),
 	}
@@ -81,7 +80,7 @@ func CreateCredentials(ctx context.Context) (serviceAccount, localKeyFilePath st
 	if err != nil {
 		setup.LogAndExit(fmt.Sprintf("Error while creating credentials file %v", err))
 	}
-	_, err = io.WriteString(file, string(creds.Payload.Data))
+	_, err = io.Writer.Write(file, creds.Payload.Data)
 	if err != nil {
 		setup.LogAndExit(fmt.Sprintf("Error while writing credentials to local file %v", err))
 	}
@@ -97,9 +96,6 @@ func ApplyPermissionToServiceAccount(ctx context.Context, storageClient *storage
 	if err != nil {
 		setup.LogAndExit(fmt.Sprintf("Error fetching: Bucket(%q).IAM().Policy: %v", bucket, err))
 	}
-	// Other valid prefixes are "serviceAccount:", "user:"
-	// See the documentation for more values.
-	// https://cloud.google.com/storage/docs/access-control/iam
 	identity := fmt.Sprintf("serviceAccount:%s", serviceAccount)
 	role := iam.RoleName(fmt.Sprintf("roles/storage.%s", permission))
 
@@ -110,31 +106,6 @@ func ApplyPermissionToServiceAccount(ctx context.Context, storageClient *storage
 	// Waiting for 2 minutes as it usually takes within 2 minutes for policy
 	// changes to propagate: https://cloud.google.com/iam/docs/access-change-propagation
 	time.Sleep(120 * time.Second)
-	maxAttempts := 10
-	waitInterval := 5 * time.Second
-	timeout := 2 * time.Minute
-	startTime := time.Now()
-
-	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		policy, err := bucketHandle.IAM().Policy(ctx)
-		if err != nil {
-			setup.LogAndExit(fmt.Sprintf("Error fetching policy: %v", err))
-		}
-
-		if policy.HasRole(identity, role) {
-			return // Permission applied successfully
-		}
-
-		time.Sleep(waitInterval)
-		waitInterval *= 2 // Exponential backoff
-
-		if time.Since(startTime) > timeout {
-			setup.LogAndExit(fmt.Sprintf("Timeout waiting for permission propagation"))
-		}
-	}
-
-	setup.LogAndExit(fmt.Sprintf("Failed to apply permission after %d attempts", maxAttempts))
-
 }
 
 func RevokePermission(ctx context.Context, storageClient *storage.Client, serviceAccount, permission, bucket string) {
@@ -144,9 +115,6 @@ func RevokePermission(ctx context.Context, storageClient *storage.Client, servic
 	if err != nil {
 		setup.LogAndExit(fmt.Sprintf("Error fetching: Bucket(%q).IAM().Policy: %v", bucket, err))
 	}
-	// Other valid prefixes are "serviceAccount:", "user:"
-	// See the documentation for more values.
-	// https://cloud.google.com/storage/docs/access-control/iam
 	identity := fmt.Sprintf("serviceAccount:%s", serviceAccount)
 	role := iam.RoleName(fmt.Sprintf("roles/storage.%s", permission))
 
@@ -156,15 +124,8 @@ func RevokePermission(ctx context.Context, storageClient *storage.Client, servic
 	}
 }
 
-func RevokeAllStoragePermission(ctx context.Context, storageClient *storage.Client, serviceAccount, bucket string) {
-	// Revoke all storage permission to service account before testing incase testing failed in previous run leading to inconsistency.
-	RevokePermission(ctx, storageClient, serviceAccount, "objectAdmin", bucket)
-	RevokePermission(ctx, storageClient, serviceAccount, "objectViewer", bucket)
-}
-
 func RunTestsForKeyFileAndGoogleApplicationCredentialsEnvVarSet(ctx context.Context, storageClient *storage.Client, testFlagSet [][]string, permission string, m *testing.M) (successCode int) {
 	serviceAccount, localKeyFilePath := CreateCredentials(ctx)
-	RevokeAllStoragePermission(ctx, storageClient, serviceAccount, setup.TestBucket())
 	ApplyPermissionToServiceAccount(ctx, storageClient, serviceAccount, permission, setup.TestBucket())
 	defer RevokePermission(ctx, storageClient, serviceAccount, permission, setup.TestBucket())
 
