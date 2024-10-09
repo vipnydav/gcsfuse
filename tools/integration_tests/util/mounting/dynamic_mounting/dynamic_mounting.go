@@ -16,12 +16,10 @@ package dynamic_mounting
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"path"
 	"testing"
-	"time"
 
 	"cloud.google.com/go/compute/metadata"
 	"cloud.google.com/go/storage"
@@ -139,21 +137,9 @@ func DeleteTestBucketForDynamicMounting(ctx context.Context, client *storage.Cli
 		}
 
 		obj := bucket.Object(objAttrs.Name)
-
-		maxRetries := 3
-		for i := 0; i < maxRetries; i++ {
-			err = obj.Delete(ctx)
-			if err == nil {
-				break // Object deleted successfully
-			}
-			if errors.Is(err, storage.ErrObjectNotExist) {
-				break // Object already deleted
-			}
-			log.Printf("Attempt %d failed to delete object %s: %v", i+1, obj.ObjectName(), err)
-			time.Sleep(time.Second << i) // Exponential backoff
-		}
+		err = obj.Delete(ctx)
 		if err != nil {
-			log.Fatalf("Failed to delete object %s after retries: %v", objAttrs.Name, err)
+			log.Fatalf("Failed to delete object %s: %v", objAttrs.Name, err)
 		}
 	}
 
