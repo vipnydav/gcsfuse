@@ -64,7 +64,7 @@ func TestMain(m *testing.M) {
 		}
 		err = closeControlClient()
 		if err != nil {
-			log.Fatalf("closeControlClient failed: #{err}")
+			log.Fatalf("closeControlClient failed: %v", err)
 		}
 	}()
 
