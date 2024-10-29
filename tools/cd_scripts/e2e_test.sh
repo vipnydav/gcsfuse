@@ -19,8 +19,14 @@ set -x
 set -e
 
 if `grep -iq suse /etc/os-release`; then
-  sudo cp google-cloud-sdk.repo /etc/zypp/repos.d/.
-  sudo zypper install google-cloud-sdk
+  sudo echo """[google-cloud-cli]
+name=Google Cloud CLI
+baseurl=https://packages.cloud.google.com/yum/repos/cloud-sdk-el9-x86_64
+enabled=1
+gpgcheck=1
+repo_gpgcheck=0
+gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg""" > /etc/zypp/repos.d/google-cloud-sdk.repo
+  sudo zypper --gpg-auto-import-keys install -y google-cloud-sdk
 fi
 
 #details.txt file contains the release version and commit hash of the current release.
