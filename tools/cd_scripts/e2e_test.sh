@@ -18,6 +18,11 @@ set -x
 # Exit immediately if a command exits with a non-zero status.
 set -e
 
+if `grep -iq suse /etc/os-release`; then
+  sudo cp google-cloud-sdk.repo /etc/zypp/repos.d/.
+  sudo zypper install google-cloud-sdk
+fi
+
 #details.txt file contains the release version and commit hash of the current release.
 gsutil cp  gs://gcsfuse-release-packages/version-detail/details.txt .
 # Writing VM instance name to details.txt (Format: release-test-<os-name>)
