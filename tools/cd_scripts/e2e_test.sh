@@ -39,6 +39,9 @@ if grep -q ubuntu details.txt || grep -q debian details.txt;
 then
 #  For ubuntu and debian os
     sudo adduser --ingroup google-sudoers --disabled-password --home=/home/starterscriptuser --gecos "" starterscriptuser
+elif grep -q suse details.txt || grep -q sles details.txt;
+then
+    sudo useradd -g google-sudoers --home-dir=/home/starterscriptuser starterscriptuser
 else
 #  For rhel and centos
     sudo adduser -g google-sudoers --home-dir=/home/starterscriptuser starterscriptuser
@@ -62,7 +65,7 @@ echo Current Working Directory: $(pwd)  &>> ~/logs.txt
 
 # Based on the os type in detail.txt, run the following commands for setup
 
-if grep -q ubuntu details.txt || grep -q debian details.txt;
+if grep -iq ubuntu details.txt || grep -q debian details.txt;
 then
 #  For Debian and Ubuntu os
     # architecture can be amd64 or arm64
@@ -91,6 +94,35 @@ then
 
     #install build-essentials
     sudo apt install -y build-essential
+elif grep -q suse details.txt || grep -q sles details.txt;
+then
+#  For rhel and centos
+    # uname can be aarch or x86_64
+    uname=$(uname -i)
+
+    if [[ $uname == "x86_64" ]]; then
+      architecture="amd64"
+    elif [[ $uname == "aarch64" ]]; then
+      architecture="arm64"
+    fi
+
+    sudo zypper refresh
+
+    #Install fuse
+    sudo zypper install -y fuse
+
+    #download and install gcsfuse rpm package
+    gsutil cp gs://gcsfuse-release-packages/v$(sed -n 1p details.txt)/gcsfuse-$(sed -n 1p details.txt)-1.${uname}.rpm .
+    sudo zypper --no-gpg-checks install -y gcsfuse-$(sed -n 1p details.txt)-1.${uname}.rpm
+
+    #install wget
+    sudo zypper install -y wget
+
+    #install git
+    sudo zypper install -y git
+
+    #install Development tools
+    sudo zypper install -y gcc gcc-c++ make
 else
 #  For rhel and centos
     # uname can be aarch or x86_64
@@ -142,6 +174,14 @@ then
     # install python3-setuptools tools and python3-pip
     sudo yum -y install gcc python3-devel python3-setuptools redhat-rpm-config
     sudo yum -y install python3-pip
+    # Downloading composite object requires integrity checking with CRC32c in gsutil.
+    # it requires to install crcmod.
+    pip3 install --require-hashes -r tools/cd_scripts/requirements.txt --user
+elif grep -q suse details || grep -q sles details.txt;
+then
+    # install python3-setuptools tools and python3-pip
+    sudo zypper install -y gcc python3-devel python3-setuptools redhat-rpm-config
+    sudo zypper install -y python3-pip
     # Downloading composite object requires integrity checking with CRC32c in gsutil.
     # it requires to install crcmod.
     pip3 install --require-hashes -r tools/cd_scripts/requirements.txt --user
