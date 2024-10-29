@@ -41,7 +41,7 @@ then
     sudo adduser --ingroup google-sudoers --disabled-password --home=/home/starterscriptuser --gecos "" starterscriptuser
 elif grep -q suse details.txt || grep -q sles details.txt;
 then
-    sudo useradd -g google-sudoers --home-dir=/home/starterscriptuser starterscriptuser
+    sudo useradd -m -g google-sudoers --home-dir=/home/starterscriptuser starterscriptuser
 else
 #  For rhel and centos
     sudo adduser -g google-sudoers --home-dir=/home/starterscriptuser starterscriptuser
