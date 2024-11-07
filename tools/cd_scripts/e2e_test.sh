@@ -50,14 +50,13 @@ expect eof
 EOF
 
       # Make the expect script executable
-      chmod +x "$expect_script"
+      sudo chmod +x "$expect_script"
 
       # Run the expect script using expect
-      expect "$expect_script"
+      sudo expect "$expect_script"
 
       # Remove the temporary expect script
-      rm "$expect_script"
-      sleep 60
+      sudo rm "$expect_script"
     else
       sudo zypper --gpg-auto-import-keys install -y google-cloud-sdk
     fi
