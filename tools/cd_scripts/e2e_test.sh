@@ -57,6 +57,7 @@ EOF
 
       # Remove the temporary expect script
       rm "$expect_script"
+      sleep 60
     else
       sudo zypper --gpg-auto-import-keys install -y google-cloud-sdk
     fi
@@ -68,7 +69,10 @@ gsutil cp  gs://gcsfuse-release-packages/version-detail/details.txt .
 # Writing VM instance name to details.txt (Format: release-test-<os-name>)
 curl http://metadata.google.internal/computeMetadata/v1/instance/name -H "Metadata-Flavor: Google" >> details.txt
 
-sudo cp details.txt /
+if [[ $architecture == "arm64" ]]; then
+  sudo cp details.txt /
+fi
+
 # Based on the os type(from vm instance name) in detail.txt, run the following commands to add starterscriptuser
 if grep -q ubuntu details.txt || grep -q debian details.txt;
 then
