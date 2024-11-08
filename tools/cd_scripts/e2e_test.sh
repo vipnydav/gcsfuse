@@ -27,7 +27,7 @@ gpgcheck=1
 repo_gpgcheck=0
 gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg""" > /etc/zypp/repos.d/google-cloud-sdk.repo
 
-  sudo zypper -n refresh
+  sudo zypper --gpg-auto-import-keys -n refresh
 fi
 
 # Writing VM instance name to details.txt (Format: release-test-<os-name>)
@@ -68,7 +68,7 @@ if `grep -iq suse /etc/os-release`; then
     cat <<EOF > "$expect_script"
 #!/usr/bin/expect -f
 
-spawn sudo zypper install google-cloud-sdk
+spawn sudo zypper --gpg-auto-import-keys install google-cloud-sdk
 expect "Choose from above solutions by number or cancel \[1\/2\/c\/d\/\?\] \(c\): "
 send "2\r"
 expect "Continue? \[y\/n\/v\/...? shows all options\] (y): "
