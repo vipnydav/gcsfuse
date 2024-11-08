@@ -19,14 +19,6 @@ set -x
 set -e
 
 if `grep -iq suse /etc/os-release`; then
-  # uname can be aarch or x86_64
-  uname=$(uname -i)
-  if [[ $uname == "x86_64" ]]; then
-    architecture="amd64"
-  elif [[ $uname == "aarch64" ]]; then
-    architecture="arm64"
-  fi
-
   sudo echo """[google-cloud-cli]
 name=Google Cloud CLI
 baseurl=https://packages.cloud.google.com/yum/repos/cloud-sdk-el9-x86_64
@@ -35,42 +27,11 @@ gpgcheck=1
 repo_gpgcheck=0
 gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg""" > /etc/zypp/repos.d/google-cloud-sdk.repo
 
-    if [[ $architecture == "arm64" ]]; then
-      # Create a temporary expect script
-      expect_script=$(mktemp)
-      cat <<EOF > "$expect_script"
-#!/usr/bin/expect -f
-
-spawn sudo zypper install google-cloud-sdk
-expect "Choose from above solutions by number or cancel \[1\/2\/c\/d\/\?\] \(c\): "
-send "2\r"
-expect "Continue? \[y\/n\/v\/...? shows all options\] (y): "
-send "y\r"
-expect eof
-EOF
-
-      # Make the expect script executable
-      sudo chmod +x "$expect_script"
-
-      # Run the expect script using expect
-      sudo expect "$expect_script"
-
-      # Remove the temporary expect script
-      sudo rm "$expect_script"
-    else
-      sudo zypper --gpg-auto-import-keys install -y google-cloud-sdk
-    fi
+  sudo zypper -n refresh
 fi
-
-#details.txt file contains the release version and commit hash of the current release.
-gsutil cp  gs://gcsfuse-release-packages/version-detail/details.txt .
 
 # Writing VM instance name to details.txt (Format: release-test-<os-name>)
 curl http://metadata.google.internal/computeMetadata/v1/instance/name -H "Metadata-Flavor: Google" >> details.txt
-
-if [[ $architecture == "arm64" ]]; then
-  sudo cp details.txt /
-fi
 
 # Based on the os type(from vm instance name) in detail.txt, run the following commands to add starterscriptuser
 if grep -q ubuntu details.txt || grep -q debian details.txt;
@@ -92,9 +53,48 @@ set -e
 # Print commands and their arguments as they are executed.
 set -x
 
-#Copy details.txt to starterscriptuser home directory and create logs.txt
+if `grep -iq suse /etc/os-release`; then
+  # uname can be aarch or x86_64
+  uname=$(uname -i)
+  if [[ $uname == "x86_64" ]]; then
+    architecture="amd64"
+  elif [[ $uname == "aarch64" ]]; then
+    architecture="arm64"
+  fi
+
+  if [[ $architecture == "arm64" ]]; then
+    # Create a temporary expect script
+    expect_script=$(mktemp)
+    cat <<EOF > "$expect_script"
+#!/usr/bin/expect -f
+
+spawn sudo zypper install google-cloud-sdk
+expect "Choose from above solutions by number or cancel \[1\/2\/c\/d\/\?\] \(c\): "
+send "2\r"
+expect "Continue? \[y\/n\/v\/...? shows all options\] (y): "
+send "y\r"
+expect eof
+EOF
+
+    # Make the expect script executable
+    sudo chmod +x "$expect_script"
+
+    # Run the expect script using expect
+    sudo expect "$expect_script"
+
+    # Remove the temporary expect script
+    sudo rm "$expect_script"
+  else
+    sudo zypper --gpg-auto-import-keys install -y google-cloud-sdk
+  fi
+fi
+
 cd ~/
-cp /details.txt .
+#details.txt file contains the release version and commit hash of the current release.
+gsutil cp  gs://gcsfuse-release-packages/version-detail/details.txt .
+
+curl http://metadata.google.internal/computeMetadata/v1/instance/name -H "Metadata-Flavor: Google" >> details.txt
+
 cat details.txt
 touch logs.txt
 touch logs-hns.txt
