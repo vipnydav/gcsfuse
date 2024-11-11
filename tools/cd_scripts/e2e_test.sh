@@ -153,6 +153,7 @@ then
     #download and install gcsfuse rpm package
     gsutil cp gs://gcsfuse-release-packages/v$(sed -n 1p details.txt)/gcsfuse-$(sed -n 1p details.txt)-1.${uname}.rpm .
     sudo zypper --no-gpg-checks install -y gcsfuse-$(sed -n 1p details.txt)-1.${uname}.rpm
+    sudo cp /usr/bin/gcsfuse /bin/gcsfuse
 
     #install wget
     sudo zypper install -y wget
