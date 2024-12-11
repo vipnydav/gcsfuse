@@ -18,7 +18,10 @@ set -x
 # Exit immediately if a command exits with a non-zero status.
 set -e
 
-if `grep -iq suse /etc/os-release`; then
+# Todo: Remove once gcloud is packaged in SUSE images available on GCP
+# Add repo file for gcloud
+if `grep -iq sles /etc/os-release`;
+then
   sudo echo """[google-cloud-cli]
 name=Google Cloud CLI
 baseurl=https://packages.cloud.google.com/yum/repos/cloud-sdk-el9-x86_64
@@ -53,16 +56,30 @@ set -e
 # Print commands and their arguments as they are executed.
 set -x
 
-if `grep -iq suse /etc/os-release`; then
+# Determine architecture
+if grep -q ubuntu details.txt || grep -q debian details.txt;
+then
+  # architecture can be amd64 or arm64
+  architecture=$(dpkg --print-architecture)
+elif `grep -iq sles /etc/os-release` || grep -q rhel details.txt || grep -q centos details.txt;
+then
   # uname can be aarch or x86_64
   uname=$(uname -i)
-  if [[ $uname == "x86_64" ]]; then
+  if [[ $uname == "x86_64" ]];
+  then
     architecture="amd64"
-  elif [[ $uname == "aarch64" ]]; then
+  elif [[ $uname == "aarch64" ]];
+  then
     architecture="arm64"
   fi
+fi
 
-  if [[ $architecture == "arm64" ]]; then
+# Todo: Remove once gcloud is packaged in SUSE images available on GCP
+# Install gcloud
+if `grep -iq suse /etc/os-release`;
+then
+  if [[ $architecture == "arm64" ]];
+  then
     # Create a temporary expect script
     expect_script=$(mktemp)
     cat <<EOF > "$expect_script"
@@ -90,12 +107,11 @@ EOF
 fi
 
 cd ~/
-#details.txt file contains the release version and commit hash of the current release.
+# details.txt file contains the release version and commit hash of the current release.
 gsutil cp  gs://gcsfuse-release-packages/version-detail/details.txt .
-
+# Writing VM instance name to details.txt (Format: release-test-<os-name>)
 curl http://metadata.google.internal/computeMetadata/v1/instance/name -H "Metadata-Flavor: Google" >> details.txt
 
-cat details.txt
 touch logs.txt
 touch logs-hns.txt
 
@@ -104,12 +120,9 @@ echo Current Working Directory: $(pwd)  &>> ~/logs.txt
 
 # Based on the os type in detail.txt, run the following commands for setup
 
-if grep -iq ubuntu details.txt || grep -q debian details.txt;
+if grep -q ubuntu details.txt || grep -q debian details.txt;
 then
 #  For Debian and Ubuntu os
-    # architecture can be amd64 or arm64
-    architecture=$(dpkg --print-architecture)
-
     sudo apt update
 
     #Install fuse
@@ -133,18 +146,9 @@ then
 
     #install build-essentials
     sudo apt install -y build-essential
-elif grep -q suse details.txt || grep -q sles details.txt;
+elif grep -q sles details.txt;
 then
-#  For rhel and centos
-    # uname can be aarch or x86_64
-    uname=$(uname -i)
-
-    if [[ $uname == "x86_64" ]]; then
-      architecture="amd64"
-    elif [[ $uname == "aarch64" ]]; then
-      architecture="arm64"
-    fi
-
+#  For suse linux
     sudo zypper refresh
 
     #Install fuse
@@ -165,15 +169,6 @@ then
     sudo zypper install -y gcc gcc-c++ make
 else
 #  For rhel and centos
-    # uname can be aarch or x86_64
-    uname=$(uname -i)
-
-    if [[ $uname == "x86_64" ]]; then
-      architecture="amd64"
-    elif [[ $uname == "aarch64" ]]; then
-      architecture="arm64"
-    fi
-
     sudo yum makecache
     sudo yum -y update
 
@@ -217,7 +212,7 @@ then
     # Downloading composite object requires integrity checking with CRC32c in gsutil.
     # it requires to install crcmod.
     pip3 install --require-hashes -r tools/cd_scripts/requirements.txt --user
-elif grep -q suse details.txt || grep -q sles details.txt;
+elif grep -iq sles details.txt;
 then
     # install python3-setuptools tools and python3-pip
     sudo zypper install -y gcc python3-devel python3-setuptools redhat-rpm-config
@@ -248,6 +243,8 @@ TEST_DIR_PARALLEL=(
   "log_content"
   "kernel_list_cache"
   "concurrent_operations"
+  "benchmarking"
+  "mount_timeout"
 )
 
 # These tests never become parallel as they are changing bucket permissions.
@@ -261,7 +258,6 @@ TEST_DIR_NON_PARALLEL=(
 # Create a temporary file to store the log file name.
 TEST_LOGS_FILE=$(mktemp)
 
-GO_TEST_SHORT_FLAG="-short"
 INTEGRATION_TEST_TIMEOUT=180m
 
 function run_non_parallel_tests() {
@@ -276,7 +272,7 @@ function run_non_parallel_tests() {
     local log_file="/tmp/${test_dir_np}_${BUCKET_NAME}.log"
     echo $log_file >> $TEST_LOGS_FILE
     # Executing integration tests
-    GODEBUG=asyncpreemptoff=1 go test $test_path_non_parallel -p 1 $GO_TEST_SHORT_FLAG --integrationTest -v --testbucket=$BUCKET_NAME --testInstalledPackage=true -timeout $INTEGRATION_TEST_TIMEOUT > "$log_file" 2>&1
+    GODEBUG=asyncpreemptoff=1 go test $test_path_non_parallel -p 1 --integrationTest -v --testbucket=$BUCKET_NAME --testInstalledPackage=true -timeout $INTEGRATION_TEST_TIMEOUT > "$log_file" 2>&1
     exit_code_non_parallel=$?
     if [ $exit_code_non_parallel != 0 ]; then
       exit_code=$exit_code_non_parallel
@@ -290,15 +286,23 @@ function run_parallel_tests() {
   local -n test_array=$1
   local BUCKET_NAME=$2
   local pids=()
+  local benchmark_flags=""
+
   for test_dir_p in "${test_array[@]}"
   do
+    # Unlike regular tests,benchmark tests are not executed by default when using go test .
+    # The -bench flag yells go test to run the benchmark tests and report their results by
+    # enabling the benchmarking framework.
+    if [ $test_dir_p == "benchmarking" ]; then
+        benchmark_flags="-bench=."
+    fi
     test_path_parallel="./tools/integration_tests/$test_dir_p"
     # To make it clear whether tests are running on a flat or HNS bucket, We kept the log file naming
     # convention to include the bucket name as a suffix (e.g., package_name_bucket_name).
     local log_file="/tmp/${test_dir_p}_${BUCKET_NAME}.log"
     echo $log_file >> $TEST_LOGS_FILE
     # Executing integration tests
-    GODEBUG=asyncpreemptoff=1 go test $test_path_parallel $GO_TEST_SHORT_FLAG -p 1 --integrationTest -v --testbucket=$BUCKET_NAME --testInstalledPackage=true -timeout $INTEGRATION_TEST_TIMEOUT > "$log_file" 2>&1 &
+    GODEBUG=asyncpreemptoff=1 go test $test_path_parallel $benchmark_flags -p 1 --integrationTest -v --testbucket=$BUCKET_NAME --testInstalledPackage=true -timeout $INTEGRATION_TEST_TIMEOUT > "$log_file" 2>&1 &
     pid=$!  # Store the PID of the background process
     pids+=("$pid")  # Optionally add the PID to an array for later
   done
