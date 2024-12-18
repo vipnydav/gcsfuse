@@ -19,8 +19,8 @@ set -eo pipefail
 # Display commands being run
 set -x
 
-architecture=$(uname -m)
-if [ $architecture == "aarch64" ];then
+uname=$(uname -m)
+if [ $uname == "aarch64" ];then
   # TODO: Remove this when we have an ARM64 image for the storage test bench.(b/384388821)
   echo "These tests will not run for arm64 machine..."
   exit 0
@@ -37,6 +37,38 @@ minor_ver=${comps[1]}
 if [ "$minor_ver" -lt "$min_minor_ver" ]; then
     echo minor version $minor_ver, skipping
     exit 0
+fi
+
+# Install dependencies
+# Ubuntu/Debian based machine.
+if [ -f /etc/debian_version ]; then
+  if grep -q "Ubuntu" /etc/os-release; then
+    os="ubuntu"
+  elif grep -q "Debian" /etc/os-release; then
+    os="debian"
+  fi
+
+  sudo apt-get update
+  sudo apt-get install -y ca-certificates curl
+  sudo install -m 0755 -d /etc/apt/keyrings
+  sudo curl -fsSL https://download.docker.com/linux/${os}/gpg -o /etc/apt/keyrings/docker.asc
+  sudo chmod a+r /etc/apt/keyrings/docker.asc
+  # Add the repository to Apt sources:
+  echo \
+    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/${os} \
+    $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+    sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+  sudo apt-get update
+  sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  sudo apt-get install -y lsof
+# RHEL/CentOS based machine.
+elif [ -f /etc/redhat-release ]; then
+  sudo dnf -y install dnf-plugins-core
+  sudo dnf config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo
+  sudo dnf -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  sudo usermod -aG docker $USER
+  sudo systemctl start docker
+  sudo yum -y install lsof
 fi
 
 export STORAGE_EMULATOR_HOST="http://localhost:9000"
