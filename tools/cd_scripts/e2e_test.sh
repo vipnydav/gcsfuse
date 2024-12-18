@@ -153,6 +153,8 @@ then
     sudo apt-get update
     sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
+    sudo apt-get install -y lsof
+
 
    # install python3-setuptools tools.
    sudo apt-get install -y gcc python3-dev python3-setuptools
