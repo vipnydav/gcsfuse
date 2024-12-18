@@ -395,7 +395,7 @@ function run_e2e_tests_for_hns_bucket(){
 }
 
 function run_e2e_tests_for_emulator() {
-  ./tools/integration_tests/emulator_tests/emulator_tests.sh true > logs-emulator.txt
+  ./tools/integration_tests/emulator_tests/emulator_tests.sh true > ~/logs-emulator.txt
 }
 
 function gather_test_logs() {
