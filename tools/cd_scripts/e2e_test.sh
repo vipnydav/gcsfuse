@@ -209,6 +209,7 @@ else
     sudo dnf install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
     sudo usermod -aG docker $USER
     sudo systemctl start docker
+    sudo yum install lsof
 fi
 
 # install go
