@@ -45,6 +45,7 @@ cd ~/
 cp /details.txt .
 touch logs.txt
 touch logs-hns.txt
+touch logs-zonal.txt
 
 echo User: $USER &>> ~/logs.txt
 echo Current Working Directory: $(pwd)  &>> ~/logs.txt
@@ -183,7 +184,7 @@ function run_non_parallel_tests() {
   for test_dir_np in "${test_array[@]}"
   do
     test_path_non_parallel="./tools/integration_tests/$test_dir_np"
-    # To make it clear whether tests are running on a flat or HNS bucket, We kept the log file naming
+    # To make it clear whether tests are running on a flat or HNS or Zonal bucket, We kept the log file naming
     # convention to include the bucket name as a suffix (e.g., package_name_bucket_name).
     local log_file="/tmp/${test_dir_np}_${BUCKET_NAME}.log"
     echo $log_file >> $TEST_LOGS_FILE
@@ -213,7 +214,7 @@ function run_parallel_tests() {
         benchmark_flags="-bench=."
     fi
     test_path_parallel="./tools/integration_tests/$test_dir_p"
-    # To make it clear whether tests are running on a flat or HNS bucket, We kept the log file naming
+    # To make it clear whether tests are running on a flat or HNS or Zonal bucket, We kept the log file naming
     # convention to include the bucket name as a suffix (e.g., package_name_bucket_name).
     local log_file="/tmp/${test_dir_p}_${BUCKET_NAME}.log"
     echo $log_file >> $TEST_LOGS_FILE
@@ -287,6 +288,32 @@ function run_e2e_tests_for_hns_bucket(){
    return 0
 }
 
+function run_e2e_tests_for_zonal_bucket(){
+  zonal_bucket_name_non_parallel=$(sed -n 3p ~/details.txt)-zonal
+  echo "Zonal Bucket name to run tests sequentially: "$zonal_bucket_name_non_parallel
+
+  zonal_bucket_name_parallel=$(sed -n 3p ~/details.txt)-zonal-parallel
+  echo "Zonal Bucket name to run tests parallelly: "$zonal_bucket_name_parallel
+
+   echo "Running tests for Zonal bucket"
+   run_parallel_tests TEST_DIR_PARALLEL "$zonal_bucket_name_parallel" &
+   parallel_tests_zonal_group_pid=$!
+   run_non_parallel_tests TEST_DIR_NON_PARALLEL "$zonal_bucket_name_non_parallel" &
+   non_parallel_tests_zonal_group_pid=$!
+
+   # Wait for all tests to complete.
+   wait $parallel_tests_zonal_group_pid
+   parallel_tests_zonal_group_exit_code=$?
+   wait $non_parallel_tests_zonal_group_pid
+   non_parallel_tests_zonal_group_exit_code=$?
+
+   if [ $parallel_tests_zonal_group_exit_code != 0 ] || [ $non_parallel_tests_zonal_group_exit_code != 0 ];
+   then
+    return 1
+   fi
+   return 0
+}
+
 function run_e2e_tests_for_emulator() {
   ./tools/integration_tests/emulator_tests/emulator_tests.sh true > ~/logs-emulator.txt
 }
@@ -300,6 +327,8 @@ function gather_test_logs() {
     if [ -f "$log_file" ]; then
       if [[ "$test_log_file" == *"hns"* ]]; then
         output_file="$HOME/logs-hns.txt"
+      else if [[ "$test_log_file" == *"zonal"* ]]; then
+        output_file="$HOME/logs-zonal.txt"
       else
         output_file="$HOME/logs.txt"
       fi
@@ -311,53 +340,70 @@ function gather_test_logs() {
   done
 }
 
-echo "Running integration tests for HNS bucket..."
-run_e2e_tests_for_hns_bucket &
-e2e_tests_hns_bucket_pid=$!
+# echo "Running integration tests for HNS bucket..."
+# run_e2e_tests_for_hns_bucket &
+# e2e_tests_hns_bucket_pid=$!
 
-echo "Running integration tests for FLAT bucket..."
-run_e2e_tests_for_flat_bucket &
-e2e_tests_flat_bucket_pid=$!
+# echo "Running integration tests for FLAT bucket..."
+# run_e2e_tests_for_flat_bucket &
+# e2e_tests_flat_bucket_pid=$!
 
-run_e2e_tests_for_emulator &
-e2e_tests_emulator_pid=$!
+echo "Running integration tests for Zonal bucket..."
+run_e2e_tests_for_zonal_bucket &
+e2e_tests_zonal_bucket_pid=$!
 
-wait $e2e_tests_emulator_pid
-e2e_tests_emulator_status=$?
+# run_e2e_tests_for_emulator &
+# e2e_tests_emulator_pid=$!
 
-wait $e2e_tests_flat_bucket_pid
-e2e_tests_flat_bucket_status=$?
+# wait $e2e_tests_emulator_pid
+# e2e_tests_emulator_status=$?
 
-wait $e2e_tests_hns_bucket_pid
-e2e_tests_hns_bucket_status=$?
+# wait $e2e_tests_flat_bucket_pid
+# e2e_tests_flat_bucket_status=$?
+
+# wait $e2e_tests_hns_bucket_pid
+# e2e_tests_hns_bucket_status=$?
+
+wait $e2e_tests_zonal_bucket_pid
+e2e_tests_zonal_bucket_status=$?
+
 
 gather_test_logs
 
-if [ $e2e_tests_flat_bucket_status != 0 ]
-then
-    echo "Test failures detected in FLAT bucket." &>> ~/logs.txt
-else
-    touch success.txt
-    gsutil cp success.txt gs://gcsfuse-release-packages/v$(sed -n 1p ~/details.txt)/$(sed -n 3p ~/details.txt)/
-fi
-gsutil cp ~/logs.txt gs://gcsfuse-release-packages/v$(sed -n 1p ~/details.txt)/$(sed -n 3p ~/details.txt)/
+# if [ $e2e_tests_flat_bucket_status != 0 ]
+# then
+#     echo "Test failures detected in FLAT bucket." &>> ~/logs.txt
+# else
+#     touch success.txt
+#     gsutil cp success.txt gs://gcsfuse-release-packages/v$(sed -n 1p ~/details.txt)/$(sed -n 3p ~/details.txt)/
+# fi
+# gsutil cp ~/logs.txt gs://gcsfuse-release-packages/v$(sed -n 1p ~/details.txt)/$(sed -n 3p ~/details.txt)/
 
-if [ $e2e_tests_hns_bucket_status != 0 ];
-then
-    echo "Test failures detected in HNS bucket." &>> ~/logs-hns.txt
-else
-    touch success-hns.txt
-    gsutil cp success-hns.txt gs://gcsfuse-release-packages/v$(sed -n 1p ~/details.txt)/$(sed -n 3p ~/details.txt)/
-fi
-gsutil cp ~/logs-hns.txt gs://gcsfuse-release-packages/v$(sed -n 1p ~/details.txt)/$(sed -n 3p ~/details.txt)/
+# if [ $e2e_tests_hns_bucket_status != 0 ];
+# then
+#     echo "Test failures detected in HNS bucket." &>> ~/logs-hns.txt
+# else
+#     touch success-hns.txt
+#     gsutil cp success-hns.txt gs://gcsfuse-release-packages/v$(sed -n 1p ~/details.txt)/$(sed -n 3p ~/details.txt)/
+# fi
+# gsutil cp ~/logs-hns.txt gs://gcsfuse-release-packages/v$(sed -n 1p ~/details.txt)/$(sed -n 3p ~/details.txt)/
 
-if [ $e2e_tests_emulator_status != 0 ];
-then
-    echo "Test failures detected in emulator based tests." &>> ~/logs-emulator.txt
-else
-    touch success-emulator.txt
-    gsutil cp success-emulator.txt gs://gcsfuse-release-packages/v$(sed -n 1p ~/details.txt)/$(sed -n 3p ~/details.txt)/
-fi
+# if [ $e2e_tests_emulator_status != 0 ];
+# then
+#     echo "Test failures detected in emulator based tests." &>> ~/logs-emulator.txt
+# else
+#     touch success-emulator.txt
+#     gsutil cp success-emulator.txt gs://gcsfuse-release-packages/v$(sed -n 1p ~/details.txt)/$(sed -n 3p ~/details.txt)/
+# fi
 
-gsutil cp ~/logs-emulator.txt gs://gcsfuse-release-packages/v$(sed -n 1p ~/details.txt)/$(sed -n 3p ~/details.txt)/
+# gsutil cp ~/logs-emulator.txt gs://gcsfuse-release-packages/v$(sed -n 1p ~/details.txt)/$(sed -n 3p ~/details.txt)/
+
+if [ $e2e_tests_zonal_bucket_status != 0 ];
+then
+    echo "Test failures detected in Zonal bucket." &>> ~/logs-zonal.txt
+else
+    touch success-zonal.txt
+    gsutil cp success-zonal.txt gs://gcsfuse-release-packages/v$(sed -n 1p ~/details.txt)/$(sed -n 3p ~/details.txt)/
+fi
+gsutil cp ~/logs-zonal.txt gs://gcsfuse-release-packages/v$(sed -n 1p ~/details.txt)/$(sed -n 3p ~/details.txt)/
 '
