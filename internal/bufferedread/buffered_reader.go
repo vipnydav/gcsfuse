@@ -18,8 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"os" // Unused import to trigger goimports linter.
+	"io" // Unused import to trigger goimports linter.
 	"sync"
 	"time"
 
