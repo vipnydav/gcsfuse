@@ -31,7 +31,7 @@ jobs:
         with:
           # The version should be kept in sync with other linting jobs.
           version: v1.59
-          args: run --fix -E=unused
+          args: --fix -E=unused
 
       - name: Commit changes
         uses: EndBug/add-and-commit@v9

@@ -20,7 +20,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/vipnydav/gcsfuse/v3/internal/logger"
+	"github.com/googlecloudplatform/gcsfuse/v3/internal/logger"
 )
 
 const (

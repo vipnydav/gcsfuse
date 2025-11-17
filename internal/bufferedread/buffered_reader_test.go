@@ -22,15 +22,15 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/googlecloudplatform/gcsfuse/v3/internal/block"
 	"github.com/googlecloudplatform/gcsfuse/v3/internal/cache/util"
 	"github.com/googlecloudplatform/gcsfuse/v3/internal/gcsx"
+	"github.com/googlecloudplatform/gcsfuse/v3/internal/storage"
+	"github.com/googlecloudplatform/gcsfuse/v3/internal/storage/fake"
+	"github.com/googlecloudplatform/gcsfuse/v3/internal/storage/gcs"
+	"github.com/googlecloudplatform/gcsfuse/v3/internal/workerpool"
+	"github.com/googlecloudplatform/gcsfuse/v3/metrics"
 	"github.com/stretchr/testify/mock"
-	"github.com/vipnydav/gcsfuse/v3/internal/block"
-	"github.com/vipnydav/gcsfuse/v3/internal/storage"
-	"github.com/vipnydav/gcsfuse/v3/internal/storage/fake"
-	"github.com/vipnydav/gcsfuse/v3/internal/storage/gcs"
-	"github.com/vipnydav/gcsfuse/v3/internal/workerpool"
-	"github.com/vipnydav/gcsfuse/v3/metrics"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1651,14 +1651,14 @@ func (t *BufferedReaderTest) TestReadAtConcurrentReads() {
 		go func(index int) {
 			defer wg.Done()
 			offset := int64(index * readIndex * readSize)
-			readBuf := make([]byte,readSize)
+			readBuf := make([]byte, readSize)
 
 			resp, err := reader.ReadAt(t.ctx, readBuf, offset)
 
 			require.NoError(t.T(), err)
 			require.Equal(t.T(), readSize, resp.Size)
 			// Copy the result to a new slice to avoid data races on readBuf.
-			results[index] = make([]byte,readSize)
+			results[index] = make([]byte, readSize)
 			copy(results[index], readBuf)
 		}(i)
 	}
@@ -1666,7 +1666,7 @@ func (t *BufferedReaderTest) TestReadAtConcurrentReads() {
 	wg.Wait()
 	// Verify the results from all goroutines individually.
 	for i, res := range results {
-		offset := int64(i * readIndex *readSize)
+		offset := int64(i * readIndex * readSize)
 		assertBufferContent(t.T(), res, offset)
 	}
 	t.bucket.AssertExpectations(t.T())

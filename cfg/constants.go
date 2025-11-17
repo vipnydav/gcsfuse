@@ -18,7 +18,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/vipnydav/gcsfuse/v3/internal/util"
+	"github.com/googlecloudplatform/gcsfuse/v3/internal/util"
 )
 
 const (
