@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"sync"
 	"time"
 
@@ -152,6 +153,7 @@ func NewBufferedReader(opts *BufferedReaderOptions) (*BufferedReader, error) {
 	}
 
 	reader.ctx, reader.cancelFunc = context.WithCancel(context.Background())
+	log.Println("Hello")
 	return reader, nil
 }
 
